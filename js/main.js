@@ -16,7 +16,10 @@ import { Home, portraitCanvas } from './home.js';
 import { drawWeapon } from './art.js';
 import { T, lang, setLang, tr } from './i18n.js';
 // canvas text written inline in Hindi (names, gate labels, float text, share card) follows the chosen language
-{ const P = CanvasRenderingContext2D.prototype; for (const f of ['fillText', 'strokeText', 'measureText']) { const o = P[f]; P[f] = function (t, ...a) { return o.call(this, tr(t), ...a); }; } }
+{ const P = CanvasRenderingContext2D.prototype; for (const f of ['fillText', 'strokeText', 'measureText']) { const o = P[f]; P[f] = function (t, ...a) { return o.call(this, tr(t), ...a); }; }
+  // gradients with a negative or non-finite radius throw mid-frame; clamp them instead
+  const rg = P.createRadialGradient; P.createRadialGradient = function (x0, y0, r0, x1, y1, r1) { const ok = v => (Number.isFinite(v) ? v : 0); return rg.call(this, ok(x0), ok(y0), Math.max(0, ok(r0)), ok(x1), ok(y1), Math.max(0, ok(r1))); };
+  const ar = P.arc; P.arc = function (x, y, r, ...a) { return ar.call(this, x, y, Math.max(0, r || 0), ...a); }; }
 import { CHAR_BIOS } from './config.js';
 window.__T = T; window.__bios = CHAR_BIOS; window.__portrait = (k, w, h) => portraitCanvas(k, w, h);
 
