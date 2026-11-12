@@ -1,6 +1,6 @@
 # चक्रव्यूह — Rewriting the Epic
 
-Day 13, Kurukshetra. Arjuna is away. Only sixteen-year-old Abhimanyu can breach Drona's Chakravyuha — but he was never taught the way out. This time, history changes: a friend enters as Satyaki.
+Day 13, Kurukshetra. Arjuna is away. Only sixteen-year-old Abhimanyu can breach Drona's Chakravyooha — but he was never taught the way out. This time, history changes: a friend enters as Satyaki.
 
 A zero-install browser game. Vanilla JS + Canvas 2D, no build step, no backend, no accounts, no tracking. All art, music, sound and voice are generated procedurally in the browser (Web Audio + SpeechSynthesis).
 

@@ -21,8 +21,9 @@ export class Voice {
   say(who, text, id) {
     const floor = this.readMs(text); const start = performance.now();
     return new Promise(resolve => {
-      let done = false; const fin = () => { if (done) return; done = true; this._cancel = null; const left = floor - (performance.now() - start); setTimeout(resolve, Math.max(0, left)); };
-      const now = () => { if (!done) { done = true; this._cancel = null; resolve(); } };
+      let done = false, timer = null; const finish = () => { if (done) return; done = true; clearTimeout(timer); if (this._cancel === now) this._cancel = null; resolve(); };
+      const fin = () => { if (done || timer) return; const left = floor - (performance.now() - start); timer = setTimeout(finish, Math.max(0, left)); };
+      const now = () => finish();
       this._cancel = now;
       if (this.muted) { setTimeout(fin, 0); return; }
       // 1) pre-generated clip

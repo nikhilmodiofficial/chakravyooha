@@ -1,4 +1,4 @@
-// Chakravyooh — orchestration: states, menus, co-op wiring, loop.
+// Chakravyooha — orchestration: states, menus, co-op wiring, loop.
 import { RINGS, ASTRAS, BOSSES, CHARACTERS, INTRO, RING_LINES, EPILOGUE, RING7, CODEX, HYPE } from './config.js';
 import { Hero } from './entities.js';
 import { World } from './world.js';
@@ -21,7 +21,7 @@ class Game {
   constructor() {
     this.canvas = document.getElementById('game'); this.ui = new UI(); this.r = new Renderer(this.canvas); this.input = new Input(this.canvas); this.audio = new AudioEngine(); this.voice = new Voice(); this.save = new Save(); this.cine = new Cinematic(this.r, this.voice, this.audio, this.ui);
     this.state = 'title'; this.world = null; this.ring7 = null; this.elapsed = 0; this.ringIdx = 0; this.abhi = null; this.satyaki = null; this.coop = { mode: 'none', host: null, client: null, friend: null }; this.proxy = null; this.last = performance.now(); this.t = 0; this.netT = 0; this.waitT = 0;
-    this.voice.muted = !this.save.d.voice; this.audio.setMute(!!this.save.d.mute); this.home = new Home(this); this.setLanguage(this.save.d.lang || ((navigator.language || '').startsWith('hi') ? 'hi' : 'hi'));
+    this.voice.muted = !this.save.d.voice; this.audio.setMute(!!this.save.d.mute); this.home = new Home(this); this.setLanguage(this.save.d.langChosen && this.save.d.lang ? this.save.d.lang : 'en');
     this.bindTouch(); window.addEventListener('beforeunload', () => { if (this.coop.host) this.coop.host.close(); if (this.coop.client) this.coop.client.close(); });
     const m = location.hash.match(/join=(cv[a-z0-9]{10})/); if (m) this.clientFlow(m[1]); else this.title();
     requestAnimationFrame(t => this.loop(t));
@@ -34,7 +34,7 @@ class Game {
 
   // ---------- TITLE ----------
   title() { this.state = 'title'; this.ui.showHud(false); this.ui.hideMenu(); this.audio.playMusic('menu', 84); this.voice.stop(); this.home.show(null); }
-  setLanguage(l) { setLang(l); this.voice.lang = l; this.save.d.lang = l; this.save.write(); document.documentElement.lang = l; }
+  setLanguage(l, explicit) { setLang(l); this.voice.lang = l; this.save.d.lang = l; if (explicit) this.save.d.langChosen = true; this.save.write(); document.documentElement.lang = l; }
   introScenes() { return INTRO; }
   // ---------- RUN ----------
   async startRun(ringIdx) {
@@ -82,7 +82,7 @@ class Game {
   hype(key, strong) { const H = HYPE[key]; if (!H) return; const now = performance.now(); if (!strong && now - (this._hypeT || 0) < 9000) return; this._hypeT = now; this.ui.hypeWord(H.word, strong); this.audio.sfx(strong ? 'unlock' : 'ui');
     if (H.lines.length && (strong || Math.random() < 0.6) && now - (this._hypeVoiceT || 0) > 14000) { this._hypeVoiceT = now; const ln = H.lines[Math.floor(Math.random() * H.lines.length)]; setTimeout(() => this.sayLine(Object.assign({ id: 'hype_' + key + '_' + H.lines.indexOf(ln) }, ln)), 500); } }
   codexPage(i) { const c = CODEX[i]; const d = document.createElement('div'); d.className = 'codex'; const h = document.createElement('div'); h.className = 'ch'; h.textContent = 'ग्रंथ-पृष्ठ ' + (i + 1) + ' · ' + c.title; d.appendChild(h); for (const [k, v] of [['व्यास ने लिखा', c.vyasa], ['यहाँ क्या बदला', c.here], ['गर्व की बात', c.pride]]) { const row = document.createElement('div'); row.className = 'cr'; const kk = document.createElement('div'); kk.className = 'ck'; kk.textContent = k; const vv = document.createElement('div'); vv.className = 'cv'; vv.textContent = v; row.append(kk, vv); d.appendChild(row); } return d; }
-  pause() { if (this.state !== 'ring') return; this.state = 'pause'; this.ui.showMenu({ title: T('pause'), body: [RINGS[this.ringIdx].name + ' · ' + fmtTime(this.elapsed)], buttons: [{ label: T('resume'), cls: 'primary', onClick: () => { this.ui.hideMenu(); this.state = 'ring'; } }, { label: lang() === 'en' ? 'हिन्दी' : 'English', sub: T('lang'), onClick: () => { this.setLanguage(lang() === 'en' ? 'hi' : 'en'); this.ui.setRing(RINGS[this.ringIdx]); this.ui.hideMenu(); this.state = 'ring'; } }, { label: T('home'), sub: T('homeSub'), onClick: () => { this.coopClose(); this.title(); } }] }); }
+  pause() { if (this.state !== 'ring') return; this.state = 'pause'; this.ui.showMenu({ title: T('pause'), body: [RINGS[this.ringIdx].name + ' · ' + fmtTime(this.elapsed)], buttons: [{ label: T('resume'), cls: 'primary', onClick: () => { this.ui.hideMenu(); this.state = 'ring'; } }, { label: lang() === 'en' ? 'हिन्दी' : 'English', sub: T('lang'), onClick: () => { this.setLanguage(lang() === 'en' ? 'hi' : 'en', true); this.ui.setRing(RINGS[this.ringIdx]); this.ui.hideMenu(); this.state = 'ring'; } }, { label: T('home'), sub: T('homeSub'), onClick: () => { this.coopClose(); this.title(); } }] }); }
 
   // ---------- RING 7: MITRA SMARAN ----------
   onFallen() {

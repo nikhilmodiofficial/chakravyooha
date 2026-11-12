@@ -23,14 +23,22 @@ export class Cinematic {
     this.voice.stop(); this.ui.subtitle('', ''); this.ui.showCinematic(false); this.active = false; this.line = null;
   }
   skip() { this.skipped = true; this.voice.stop(); if (this._resolveSkip) this._resolveSkip(); }
-  advance() { this.voice.stop(); } // ends the current line early; play() moves to the next
-  update(dt, input) {
-    this.t += dt; this.sceneT = (this.sceneT || 0) + dt;
-    const down = input.anyHeld() || input.held('escape');
-    if (down) { this.holdT += dt; this._wasDown = true; }
-    else { if (this._wasDown && this.holdT > 0.02 && this.holdT < 0.45 && !this.skipped) this.advance(); this._wasDown = false; this.holdT = 0; }
-    const need = 1.2; this.ui.skipProgress(clamp(this.holdT / need, 0, 1), this.opts.seenBefore);
-    if (this.holdT >= need) { this.holdT = 0; this._wasDown = false; this.skip(); }
+  advance() { this.voice.stop(); } // ends the current line early; play() moves to the next one
+  // Event-driven so fast taps are never missed: tap/click/Space/Enter = next line, hold 1.2 s = skip whole scene.
+  _bindInputs() {
+    if (this._bound) return; this._bound = true; this._downAt = 0;
+    const isUI = e => e.target && e.target.closest && e.target.closest('button, a, input, #menu:not(.hidden), #home:not(.hidden)');
+    const down = e => { if (!this.active || this._downAt || isUI(e)) return; this._downAt = performance.now(); };
+    const up = e => { if (!this.active || !this._downAt) return; const held = performance.now() - this._downAt; this._downAt = 0; if (held < 600 && !this.skipped) this.advance(); };
+    window.addEventListener('pointerdown', down, true); window.addEventListener('pointerup', up, true); window.addEventListener('pointercancel', () => { this._downAt = 0; }, true);
+    window.addEventListener('keydown', e => { if (!this.active) return; if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!e.repeat) down(e); } else if (e.key === 'Escape') { this.skip(); } }, true);
+    window.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') up(e); }, true);
+  }
+  update(dt) {
+    this.t += dt; this.sceneT = (this.sceneT || 0) + dt; this._bindInputs();
+    const held = this._downAt ? (performance.now() - this._downAt) / 1000 : 0; const need = 1.2;
+    this.ui.skipProgress(clamp(held > 0.25 ? (held - 0.25) / (need - 0.25) : 0, 0, 1));
+    if (held >= need && !this.skipped) { this._downAt = 0; this.skip(); }
   }
   draw() {
     if (!this.active) return; const ctx = this.r.ctx, W = this.r.w, H = this.r.h, t = this.t, sc = this.scenes[this.si]; const bg = sc.bg; const k = Math.min(1, this.sceneT / 1.2);

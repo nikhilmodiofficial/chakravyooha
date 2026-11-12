@@ -1,4 +1,4 @@
-# Chakravyooh — Rewriting the Epic
+# Chakravyooha — Rewriting the Epic
 ## Game Design Document v1.0 (corrected from brainstorm of 10–11 Nov 2026)
 
 ---
@@ -11,9 +11,9 @@ Pehle uncomfortable truth: brainstorm ka apna research (45–90 sec sessions, ze
 |---|---|---|---|
 | 1 | 30–45 min single sitting, koi checkpoint nahi | Har ring ke baad auto-checkpoint (localStorage). Band karke wapas aao, wahi ring se resume. Full run 30–40 min, lekin har ring 3–6 min ka self-contained session hai. | [Certain] design fix |
 | 2 | 7th gate sirf friend se khulta hai; friend na aaye to dead end | Mitra Smaran ke 3 raste: (a) online link — dost apne phone se Satyaki banta hai, (b) hot-seat — same screen pe dost ko phone do, (c) 90 sec wait ke baad "Satyaki ki bhoomika khud nibhao". (a) viral path hai, (b)(c) finishability guarantee. | [Certain] |
-| 3 | "Yudhishthira kehte hain sirf 4 log vyuha tod sakte hain: Arjuna, Krishna, Pradyumna, Abhimanyu" | Drona Parva me Abhimanyu khud kehta hai: pravesh jaanta hoon, nirgaman nahi; Arjuna/Krishna/Pradyumna pravesh+nirgaman dono jaante hain. Game me yahi line use hoti hai. | [Likely] (Drona Parva, Abhimanyu-vadha section; exact adhyaya numbering edition pe depend karti hai) |
+| 3 | "Yudhishthira kehte hain sirf 4 log vyooha tod sakte hain: Arjuna, Krishna, Pradyumna, Abhimanyu" | Drona Parva me Abhimanyu khud kehta hai: pravesh jaanta hoon, nirgaman nahi; Arjuna/Krishna/Pradyumna pravesh+nirgaman dono jaante hain. Game me yahi line use hoti hai. | [Likely] (Drona Parva, Abhimanyu-vadha section; exact adhyaya numbering edition pe depend karti hai) |
 | 4 | Satyaki = "Ayurveda/Shalya-tantra ka vidwan" | Vyasa text me aisa koi reference nahi. Fiction hai to fiction ko ek hi source do: Agastya se mili ek hi siddhi — Sukshma-gati (chhaya me chalna) + Prana-sanchar (prana lautana). Ek tapasya, do phal. Loophole kam. | [Guessing] on the healing claim being canon → removed |
-| 5 | Ring bosses: Durmukha, Dushasan, Kripa, Ashwatthama, Shakuni, Karna, Jayadratha | Canon me Jayadratha vyuha ke BAHAR gate pe tha (Pandavon ko rokne), andar nahi. Shakuni ne Abhimanyu se duel nahi kiya. Canon ke hisaab se Abhimanyu ne andar inse lada: Dushasana (behosh kiya), Shalya, Lakshmana (Duryodhana-putra), Karna/Vrishasena, Brihadbala, Kripa, Ashwatthama, aur ant me 6 maharathi ek saath + Dushasana-putra ka gada-prahaar. Ring order isi pe banayi. | [Likely] |
+| 5 | Ring bosses: Durmukha, Dushasan, Kripa, Ashwatthama, Shakuni, Karna, Jayadratha | Canon me Jayadratha vyooha ke BAHAR gate pe tha (Pandavon ko rokne), andar nahi. Shakuni ne Abhimanyu se duel nahi kiya. Canon ke hisaab se Abhimanyu ne andar inse lada: Dushasana (behosh kiya), Shalya, Lakshmana (Duryodhana-putra), Karna/Vrishasena, Brihadbala, Kripa, Ashwatthama, aur ant me 6 maharathi ek saath + Dushasana-putra ka gada-prahaar. Ring order isi pe banayi. | [Likely] |
 | 6 | Jayadratha ka boon = "4 Pandavon ko rokega" | Boon: Arjuna ko chhodkar baaki Pandavon ko ek din rok sakta hai. Satyaki Pandava nahi — boon uspe lagu nahi. Lekin canon me Satyaki bhi us jhund me tha jo ruka. Isliye uski entry ke liye siddhi zaroori hai (fix 4). | [Likely] |
 | 7 | 3D cel-shaded Raji-style | Browser + zero-install + ek hi developer: 2D stylised Canvas (Raji ki palette aur Avatar-style elemental VFX). 3D ka vaada nahi, pehle web pe prove karo. | [Certain] scope call |
 | 8 | Real-time co-op "backend" undefined | Peer-to-peer (WebRTC via PeerJS public signalling) — static hosting pe chal jaata hai, koi server nahi. Host (Abhimanyu) authoritative; friend inputs bhejta hai, host state bhejta hai. | [Likely] reliability; agar signalling flaky nikla to Cloudflare Durable Object relay plan B (code ready rakha hai) |
@@ -23,7 +23,7 @@ Pehle uncomfortable truth: brainstorm ka apna research (45–90 sec sessions, ze
 
 ## 1. Pitch (ek line)
 
-Day 13, Kurukshetra. Arjuna door hai. Sirf 16 saal ka Abhimanyu Chakravyuha tod sakta hai — lekin bahar nikalna nahi jaanta. Is baar itihaas badlega: ek mitra andar aayega.
+Day 13, Kurukshetra. Arjuna door hai. Sirf 16 saal ka Abhimanyu Chakravyooha tod sakta hai — lekin bahar nikalna nahi jaanta. Is baar itihaas badlega: ek mitra andar aayega.
 
 Genre: 2D top-down action, boss-rush with waves. Platform: browser (desktop + mobile portrait/landscape), zero install. Run: 30–40 min full, ring-wise 3–6 min.
 
@@ -35,18 +35,18 @@ Genre: 2D top-down action, boss-rush with waves. Platform: browser (desktop + mo
 
 1. Subah: Duryodhana Drona pe dabaav — "Yudhishthira ko pakdo". Drona: "Jab tak Arjuna paas hai, asambhav."
 2. Samsaptaka (Trigarta) Arjuna ko dakshin disha me chunauti dete hain; Arjuna aur Krishna chale jaate hain.
-3. Drona Chakravyuha rachta hai — ghoomta hua 7-stariya vyuha. Pandava sena pichhadne lagti hai.
-4. Yudhishthira: "Is vyuha ko kaun tod sakta hai?" Abhimanyu: "Pravesh jaanta hoon, Pita se garbh me suna tha. Nirgaman nahi jaanta." Yudhishthira: "Tum pravesh karo, hum sab tumhare peeche ghusenge, dwar band nahi hone denge." Bhima, Satyaki, Dhrishtadyumna haami bharte hain.
+3. Drona Chakravyooha rachta hai — ghoomta hua 7-stariya vyooha. Pandava sena pichhadne lagti hai.
+4. Yudhishthira: "Is vyooha ko kaun tod sakta hai?" Abhimanyu: "Pravesh jaanta hoon, Pita se garbh me suna tha. Nirgaman nahi jaanta." Yudhishthira: "Tum pravesh karo, hum sab tumhare peeche ghusenge, dwar band nahi hone denge." Bhima, Satyaki, Dhrishtadyumna haami bharte hain.
 5. Abhimanyu dwar todta hai, andar ghusta hai. Jayadratha (Shiva-vardaan) dwar pe Pandavon ko rok leta hai.
-6. (Rewrite yahin se) Satyaki Jayadratha se ladne ki bajaye ek pal ko peeche hatata hai, Agastya-siddhi "Sukshma-gati" jagata hai aur chhaya ban kar vyuha ki pehli parat me pravesh kar leta hai. Vardaan Pandavon pe tha, Satyaki Vrishni hai; aur siddhi usne kabhi yuddha me use nahi ki thi kyunki Agastya ka pratibandh tha: "sirf jab dharma ki raksha kisi aur upaay se sambhav na ho." Aaj wo sharat poori hui.
-7. Andar Abhimanyu ek ke baad ek parat todta hai. Satyaki peeche-peeche har parat ki "Vyuha-Nabhi" (ghoomne ka dhuri — ek senapati + dhwaj-stambh) girata hai, taaki parat wapas band na ho sake. Yahi kaam Bhima/Yudhishthira ko bahar se karna tha.
+6. (Rewrite yahin se) Satyaki Jayadratha se ladne ki bajaye ek pal ko peeche hatata hai, Agastya-siddhi "Sukshma-gati" jagata hai aur chhaya ban kar vyooha ki pehli parat me pravesh kar leta hai. Vardaan Pandavon pe tha, Satyaki Vrishni hai; aur siddhi usne kabhi yuddha me use nahi ki thi kyunki Agastya ka pratibandh tha: "sirf jab dharma ki raksha kisi aur upaay se sambhav na ho." Aaj wo sharat poori hui.
+7. Andar Abhimanyu ek ke baad ek parat todta hai. Satyaki peeche-peeche har parat ki "Vyooha-Nabhi" (ghoomne ka dhuri — ek senapati + dhwaj-stambh) girata hai, taaki parat wapas band na ho sake. Yahi kaam Bhima/Yudhishthira ko bahar se karna tha.
 8. 7vi parat: chhe maharathi (Drona, Kripa, Karna, Ashwatthama, Brihadbala, Kritavarma) ek saath — yuddha-niyam tod kar. Abhimanyu ka dhanush, rath, sarathi sab khatam. Wo girta hai. Dushasana-putra Durmasena gada lekar aage badhta hai (canon me yahi prahaar ghaatak tha).
 9. Mitra Smaran: Abhimanyu ko Satyaki ka vachan yaad aata hai ("main tumhare peeche hoon"). Satyaki pahunchta hai: Bana-jaala se Durmasena ko baandhta hai, Prana-sanchar se Abhimanyu ko uthata hai, Durmasena jaal todta hai, Satyaki dvandva jeetta hai.
-10. Dono milkar Nabhi-stambh todte hain. Satyaki ne 6 parton ki nabhi pehle hi tod rakhi thi — vyuha ghoomna band, parten khul jaati hain. Bahar nikalne ka rasta ab "nirgaman vidya" nahi, toota hua vyuha hai. (Loophole close: exit kaise pata chala? Pata nahi chala — exit bana diya.)
+10. Dono milkar Nabhi-stambh todte hain. Satyaki ne 6 parton ki nabhi pehle hi tod rakhi thi — vyooha ghoomna band, parten khul jaati hain. Bahar nikalne ka rasta ab "nirgaman vidya" nahi, toota hua vyooha hai. (Loophole close: exit kaise pata chala? Pata nahi chala — exit bana diya.)
 11. Sandhya. Pandava sena jo andar ghus kar marti, wo bachi. Bhima Paundra shankh phoonkta hai. Arjuna-Krishna lautte hain. Arjuna putra ko gale lagata hai.
 
 ### 2.2 Why Drona isn't a boss
-Drona canon me Abhimanyu ki prashansa karta hai aur use maarna nahi chahta; wo vyuha ka architect hai, dwandva-yoddha nahi. Game me Drona narrator-antagonist hai: har ring pe uski ek line aati hai (voice), aur ring 7 me wo gher me shaamil hai lekin Satyaki ke jaal ke baad peeche hat jaata hai ("Yeh adharma hai, main isme nahi"). Isse Drona ka character bhi bachta hai aur 7th gate ka logic bhi.
+Drona canon me Abhimanyu ki prashansa karta hai aur use maarna nahi chahta; wo vyooha ka architect hai, dwandva-yoddha nahi. Game me Drona narrator-antagonist hai: har ring pe uski ek line aati hai (voice), aur ring 7 me wo gher me shaamil hai lekin Satyaki ke jaal ke baad peeche hat jaata hai ("Yeh adharma hai, main isme nahi"). Isse Drona ka character bhi bachta hai aur 7th gate ka logic bhi.
 
 ---
 
@@ -108,15 +108,15 @@ Astra effects (all AoE, big VFX, 2.5 s cinematic slow-mo):
 - Drona line after Phase A: "Yeh adharma hai..." — six maharathis fall back behind the cage.
 
 ### 3.5 Co-op from start (optional)
-Start screen pe "Mitra ko abhi bulao" → friend joins Ring 1 as Satyaki, rear role: har ring me 1 Vyuha-Nabhi (stambh + senapati) girana hai while Abhimanyu fights boss. Agar Nabhi nahi giri to ring ke end pe Satyaki ko 30 s "Nabhi-bhanjan" solo mini-fight. Satyaki ka rear-kaam hi Ring 7 ke exit ka logic hai, to game isse "optional" nahi, "pre-done by NPC Satyaki" treat karta hai jab friend nahi hai (cutscene me dikhta hai).
+Start screen pe "Mitra ko abhi bulao" → friend joins Ring 1 as Satyaki, rear role: har ring me 1 Vyooha-Nabhi (stambh + senapati) girana hai while Abhimanyu fights boss. Agar Nabhi nahi giri to ring ke end pe Satyaki ko 30 s "Nabhi-bhanjan" solo mini-fight. Satyaki ka rear-kaam hi Ring 7 ke exit ka logic hai, to game isse "optional" nahi, "pre-done by NPC Satyaki" treat karta hai jab friend nahi hai (cutscene me dikhta hai).
 
 ---
 
 ## 4. Virality / Network design
 
 - Mitra Smaran link: `#join=<room>` — opens straight into Satyaki's Phase A with a 10 s "Tum Satyaki ho" card. Friend ko pehle apna run nahi karna padta.
-- Friend finish karte hi: "Tumne Abhimanyu bachaya. Ab apna Chakravyuha todo" → ek tap pe apna run (K-loop).
-- Share card (end): canvas-rendered PNG "Chakravyuha toota — 38:12 — Satyaki: <naam>" for WhatsApp/Instagram via Web Share API.
+- Friend finish karte hi: "Tumne Abhimanyu bachaya. Ab apna Chakravyooha todo" → ek tap pe apna run (K-loop).
+- Share card (end): canvas-rendered PNG "Chakravyooha toota — 38:12 — Satyaki: <naam>" for WhatsApp/Instagram via Web Share API.
 - Savior badge local profile pe.
 - Koi login nahi, koi analytics nahi (v1). Nothing leaves the device except the P2P session.
 
