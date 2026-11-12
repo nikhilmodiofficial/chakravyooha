@@ -16,12 +16,14 @@ export class Boss {
   get hpPct() { return this.hp / this.maxHp; }
   takeDamage(d, world, hit) {
     if (!this.alive || this.invuln) return;
+    if (this.def.arrowCut && hit && hit.kind === 'arrow' && Math.random() < this.def.arrowCut) { world.audio.sfx('clash'); world.burst(hit.x, hit.y, '#FFE8A3', 8, 160, true); world.floatText(hit.x, hit.y - 20, 'बाण कटा', '#FFE8A3'); return; }
     if (this.kavach && hit && hit.kind === 'arrow') { world.audio.sfx('clash'); world.burst(hit.x, hit.y, '#FFE8A3', 8, 160, true); world.floatText(hit.x, hit.y - 20, 'बाण कटा', '#FFE8A3'); world.addProjectile({ owner: this, team: 'kaurava', x: hit.x, y: hit.y, vx: -hit.vx * 0.5, vy: -hit.vy * 0.5, dmg: 4, life: 0.5, kind: 'arrow' }); return; }
     if (this.guard && hit && hit.kind === 'sword') { world.audio.sfx('clash'); world.burst(hit.x, hit.y, '#FFFFFF', 8, 160, true); return; }
     if (this.guard && hit && hit.kind === 'gada') { this.guard = false; this.move = null; this.stun = Math.max(this.stun, 1.0); world.audio.sfx('clash'); world.floatText(this.x, this.y - 60, 'रक्षा टूटी!', '#FFFFFF'); world.burst(this.x, this.y - 10, '#FFFFFF', 14, 220, true); }
     if (this.moves.onHit && this.moves.onHit(this, world, hit, d) === false) return;
     if (this.bound > 0) d *= 1.3;
-    this.hp -= d; this.hurtT = 0.2; world.burst(this.x, this.y, '#C23B3B', 8, 150); world.audio.sfx('hit'); world.shake(2);
+    if (this.def.noKill) d = Math.min(d, Math.max(0, this.hp - this.maxHp * this.def.noKill));
+    this.hp -= d; this.hurtT = 0.2; world.blood(this.x, this.y, hit ? hit.x : this.x, hit ? hit.y : this.y + 10, hit && (hit.kind === 'gada' || hit.kind === 'chakra') ? 1.6 : 1); world.audio.sfx('hit'); world.shake(2);
     if (hit && hit.knock && this.stun <= 0 && !this.heavy) { const a = Math.atan2(this.y - hit.y, this.x - hit.x); this.vx += Math.cos(a) * hit.knock * 0.4; this.vy += Math.sin(a) * hit.knock * 0.4; }
     if (this.phase === 1 && this.hpPct <= 0.5) { this.phase = 2; world.onBossPhase2(this); }
     if (this.hp <= 0) { this.hp = 0; this.alive = false; this.defeated = true; world.onBossDefeated(this); }
@@ -92,7 +94,7 @@ const MOVESETS = {
     idle: (b, w, dt, t) => { b.faceTarget(t); b.moveToward(t, b.speed, dt, 80); },
     pick: (b, w, t) => { const d = Math.hypot(t.x - b.x, t.y - b.y); return d < 120 ? [M.combo2, M.mayaBlink, M.guard] : [M.charge, M.mayaBlink, M.combo2]; },
     tick: (b, w, dt, t) => {
-      b.extras.glow = Math.max(0, b.extras.glow - dt);
+      if (!t) return; b.extras.glow = Math.max(0, b.extras.glow - dt);
       // Kripa stands at arena edge opposite the hero and fires every ~3s; the shot reveals the real Ashwatthama.
       const k = b.extras.kripa; if (w.arena.wallPoint) { const side = t.x < w.arena.cx ? 1 : -1; const wp = w.arena.wallPoint(side * 0.22, -10); k.x = wp.x; k.y = wp.y; } else { const a = Math.atan2(w.arena.cy - t.y, w.arena.cx - t.x); k.x = w.arena.cx + Math.cos(a) * (w.arena.r - 40); k.y = w.arena.cy + Math.sin(a) * (w.arena.r - 40); }
       b.extras.kripaT -= dt; if (b.extras.kripaT <= 0) { b.extras.kripaT = b.phase === 2 ? 2.2 : 3.2; const ang = Math.atan2(t.y - k.y, t.x - k.x); for (let i = -1; i <= 1; i++) w.addProjectile({ owner: b, team: 'kaurava', x: k.x, y: k.y, vx: Math.cos(ang + i * 0.12) * 460, vy: Math.sin(ang + i * 0.12) * 460, dmg: 8, life: 2.4, kind: 'arrow' }); w.audio.sfx('arrow'); b.extras.glow = 1.2; w.floatText(k.x, k.y - 40, 'कृप', '#CFF4FF'); }
@@ -100,6 +102,11 @@ const MOVESETS = {
       b.extras.clones = b.extras.clones.filter(c => c.alive); b.extras.cloneT -= dt;
       if (b.extras.clones.length < (b.phase === 2 ? 3 : 2) && b.extras.cloneT <= 0) { b.extras.cloneT = 4; const c = new Soldier(b.x + rnd(-90, 90), b.y + rnd(-90, 90), 'melee', 0.6); c.color = b.def.color; c.r = b.r; c.clone = true; c.speed = b.speed; c.maxHp = c.hp = 1; w.enemies.push(c); b.extras.clones.push(c); w.burst(c.x, c.y, '#8F6CFF', 12, 140, true); }
     }
+  }),
+  // ---- Ring 7 archery duel: Karna (bow only, cuts some arrows mid-air, keeps distance)
+  karna2: b => ({
+    idle: (b, w, dt, t) => { b.faceTarget(t); const d = Math.hypot(t.x - b.x, t.y - b.y); if (d < 230) b.moveToward(t, b.speed, dt, 300); else b.strafe(t, b.speed * 0.6, dt); },
+    pick: (b, w, t) => { const d = Math.hypot(t.x - b.x, t.y - b.y); return d < 160 ? [M.retreatDash, M.retreatDash, M.fan] : [M.storm, M.sunArrow, M.fan, M.rapid, M.trapArrows]; }
   }),
   // ---- Ring 7 duel: Durmasena — gada brute with rage.
   durmasena: b => ({

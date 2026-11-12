@@ -4,7 +4,9 @@ import { TAU, lerp, clamp } from './entities.js';
 import { drawSilhouette, drawChariotSil } from './art.js';
 
 export class Cinematic {
-  constructor(renderer, voice, audio, ui) { this.r = renderer; this.voice = voice; this.audio = audio; this.ui = ui; this.active = false; }
+  constructor(renderer, voice, audio, ui) { this.r = renderer; this.voice = voice; this.audio = audio; this.ui = ui; this.active = false; this.imgs = {};
+    const map = { dawn: 'bg_dawn', camp_kaurava: 'bg_kaurava', vyuha: 'bg_vyuha', camp_pandava: 'bg_pandava', satyaki_memory: 'bg_ashram', gate: 'bg_gate', inside: 'bg_inside', sunset: 'bg_sunset', siege: 'bg_siege', collapse: 'bg_collapse' };
+    for (const k in map) { const im = new Image(); im.src = 'assets/img/' + map[k] + '.jpg'; im.onerror = () => { im.failed = true; }; this.imgs[k] = im; } }
   async play(scenes, opts = {}) {
     this.active = true; this.scenes = scenes; this.si = 0; this.li = 0; this.t = 0; this.skipped = false; this.opts = opts; this.line = null; this.holdT = 0;
     this.ui.showCinematic(true, opts.seenBefore);
@@ -14,31 +16,37 @@ export class Cinematic {
       if (sc.title) this.ui.cineTitle(sc.title); else this.ui.cineTitle('');
       for (let l = 0; l < sc.lines.length && !this.skipped; l++) {
         const ln = sc.lines[l]; this.line = ln; this.ui.subtitle(CHARACTERS[ln.who].name, ln.text, CHARACTERS[ln.who].color);
-        await Promise.race([this.voice.say(ln.who, ln.text), skipP]); if (this.skipped) break; await Promise.race([wait(350), skipP]);
+        const id = (opts.idPrefix || 'cine') + '_' + s + '_' + l;
+        await Promise.race([this.voice.say(ln.who, ln.text, id), skipP]); if (this.skipped) break; await Promise.race([wait(420), skipP]);
       }
     }
     this.voice.stop(); this.ui.subtitle('', ''); this.ui.showCinematic(false); this.active = false; this.line = null;
   }
-  skip() { this.skipped = true; if (this._resolveSkip) this._resolveSkip(); }
+  skip() { this.skipped = true; this.voice.stop(); if (this._resolveSkip) this._resolveSkip(); }
+  advance() { this.voice.stop(); } // ends the current line early; play() moves to the next
   update(dt, input) {
     this.t += dt; this.sceneT = (this.sceneT || 0) + dt;
-    if (input.held(' ') || input.held('enter') || input.held('escape') || input.btn('skip') || input.held('mouse0')) { this.holdT += dt; } else this.holdT = 0;
-    const need = this.opts.seenBefore ? 0.05 : 1.5; this.ui.skipProgress(clamp(this.holdT / need, 0, 1), this.opts.seenBefore);
-    if (this.holdT >= need) { this.holdT = 0; this.skip(); }
+    const down = input.anyHeld() || input.held('escape');
+    if (down) { this.holdT += dt; this._wasDown = true; }
+    else { if (this._wasDown && this.holdT > 0.02 && this.holdT < 0.45 && !this.skipped) this.advance(); this._wasDown = false; this.holdT = 0; }
+    const need = 1.2; this.ui.skipProgress(clamp(this.holdT / need, 0, 1), this.opts.seenBefore);
+    if (this.holdT >= need) { this.holdT = 0; this._wasDown = false; this.skip(); }
   }
   draw() {
     if (!this.active) return; const ctx = this.r.ctx, W = this.r.w, H = this.r.h, t = this.t, sc = this.scenes[this.si]; const bg = sc.bg; const k = Math.min(1, this.sceneT / 1.2);
     ctx.save(); ctx.globalAlpha = 1;
-    const sky = (c0, c1, c2) => { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, c0); g.addColorStop(0.55, c1); g.addColorStop(1, c2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); };
-    const sun = (x, y, r, c) => { const g = ctx.createRadialGradient(x, y, r * 0.2, x, y, r * 3); g.addColorStop(0, c); g.addColorStop(0.3, c.replace(')', ',0.5)').replace('rgb', 'rgba')); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); };
-    const ground = (c, y) => { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, y); for (let x = 0; x <= W; x += 40) ctx.lineTo(x, y + Math.sin(x * 0.01 + 1) * 12 + Math.sin(x * 0.03) * 5); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill(); };
+    const bim = this.imgs[bg]; const hasImg = bim && bim.complete && bim.naturalWidth > 0 && !bim.failed;
+    if (hasImg) { const sc = Math.max(W / bim.naturalWidth, H / bim.naturalHeight) * (1.04 + Math.min(0.08, this.sceneT * 0.004)); const dw = bim.naturalWidth * sc, dh = bim.naturalHeight * sc; ctx.drawImage(bim, (W - dw) / 2 - this.sceneT * 1.5, (H - dh) / 2, dw, dh); const g = ctx.createLinearGradient(0, H * 0.45, 0, H); g.addColorStop(0, 'rgba(5,3,10,0)'); g.addColorStop(1, 'rgba(5,3,10,0.85)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); const g2 = ctx.createLinearGradient(0, 0, 0, H * 0.3); g2.addColorStop(0, 'rgba(5,3,10,0.6)'); g2.addColorStop(1, 'rgba(5,3,10,0)'); ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H); }
+    const sky = (c0, c1, c2) => { if (hasImg) return; const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, c0); g.addColorStop(0.55, c1); g.addColorStop(1, c2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); };
+    const sun = (x, y, r, c) => { if (hasImg) return; const g = ctx.createRadialGradient(x, y, r * 0.2, x, y, r * 3); g.addColorStop(0, c); g.addColorStop(0.3, c.replace(')', ',0.5)').replace('rgb', 'rgba')); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); };
+    const ground = (c, y) => { if (hasImg) return; ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, y); for (let x = 0; x <= W; x += 40) ctx.lineTo(x, y + Math.sin(x * 0.01 + 1) * 12 + Math.sin(x * 0.03) * 5); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill(); };
     const army = (y, n, c, h, flip = 1, sway = 1) => { for (let i = 0; i < n; i++) { const x = (i / n) * W * 1.1 - W * 0.05 + Math.sin(i * 7.3) * 20; const b = Math.sin(t * 1.5 + i) * 2 * sway; ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y - h + b, h * 0.18, 0, TAU); ctx.fill(); ctx.fillRect(x - h * 0.16, y - h * 0.8 + b, h * 0.32, h * 0.8); ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + h * 0.2 * flip, y); ctx.lineTo(x + h * 0.2 * flip, y - h * 1.7); ctx.stroke(); } };
     const figure = (x, y, h, c, acc, pose = 0, weapon = 'sword', mukut = 'band', flip = false) => drawSilhouette(ctx, { x, y, h, color: '#0b0710', rim: acc, pose: pose === 1 ? 'raise' : pose === 2 ? 'kneel' : pose === 3 ? 'bow' : 'stand', weapon, mukut, flip });
-    const hills = (y, c, amp, ph) => { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, y); for (let x = 0; x <= W; x += 30) ctx.lineTo(x, y + Math.sin(x * 0.004 + ph) * amp + Math.sin(x * 0.011 + ph * 2) * amp * 0.4); ctx.lineTo(W, H); ctx.fill(); };
+    const hills = (y, c, amp, ph) => { if (hasImg) return; ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, y); for (let x = 0; x <= W; x += 30) ctx.lineTo(x, y + Math.sin(x * 0.004 + ph) * amp + Math.sin(x * 0.011 + ph * 2) * amp * 0.4); ctx.lineTo(W, H); ctx.fill(); };
     const rays = (x, y, c) => { ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let i = 0; i < 9; i++) { const a = -Math.PI / 2 + (i - 4) * 0.22 + Math.sin(t * 0.3 + i) * 0.03; ctx.fillStyle = c; ctx.globalAlpha = 0.05 + 0.03 * Math.sin(t + i); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a - 0.05) * H * 1.6, y + Math.sin(a - 0.05) * H * 1.6); ctx.lineTo(x + Math.cos(a + 0.05) * H * 1.6, y + Math.sin(a + 0.05) * H * 1.6); ctx.fill(); } ctx.restore(); };
     const armySil = (y, n, h, flip, c = '#0b0710') => { for (let i = 0; i < n; i++) { const x = (i / n) * W * 1.1 - W * 0.05 + Math.sin(i * 7.3) * 14; drawSilhouette(ctx, { x, y: y + Math.sin(i * 3.1) * 6, h: h * (0.9 + (i % 3) * 0.06), color: c, pose: 'stand', weapon: i % 4 === 0 ? 'bow' : 'spear', mukut: 'band', flip }); } };
     const dust = (c) => { ctx.fillStyle = c; for (let i = 0; i < 60; i++) { const x = (i * 97 + t * (20 + i % 5 * 8)) % W, y = (i * 53) % H + Math.sin(t + i) * 10; ctx.globalAlpha = 0.3 + 0.3 * Math.sin(t * 2 + i); ctx.beginPath(); ctx.arc(x, y, 1.5 + i % 3, 0, TAU); ctx.fill(); } ctx.globalAlpha = 1; };
-    const vyuha = (cx, cy, R, rot) => { for (let i = 0; i < 7; i++) { const rr = R * (0.25 + i * 0.125); ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot * (i % 2 ? -1 : 1) * (1 + i * 0.1)); ctx.strokeStyle = `rgba(244,201,93,${0.9 - i * 0.1})`; ctx.lineWidth = 2; ctx.setLineDash([14, 10]); ctx.beginPath(); ctx.ellipse(0, 0, rr, rr * 0.45, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]); const n = 20 + i * 8; for (let k = 0; k < n; k++) { const a = k / n * TAU; ctx.fillStyle = 'rgba(20,14,28,0.9)'; ctx.beginPath(); ctx.arc(Math.cos(a) * rr, Math.sin(a) * rr * 0.45 - 4, 3, 0, TAU); ctx.fill(); ctx.fillRect(Math.cos(a) * rr - 2, Math.sin(a) * rr * 0.45 - 2, 4, 8); } ctx.restore(); } };
+    const vyuha = (cx, cy, R, rot) => { if (hasImg && bg !== 'collapse') return; for (let i = 0; i < 7; i++) { const rr = R * (0.25 + i * 0.125); ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot * (i % 2 ? -1 : 1) * (1 + i * 0.1)); ctx.strokeStyle = `rgba(244,201,93,${0.9 - i * 0.1})`; ctx.lineWidth = 2; ctx.setLineDash([14, 10]); ctx.beginPath(); ctx.ellipse(0, 0, rr, rr * 0.45, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]); const n = 20 + i * 8; for (let k = 0; k < n; k++) { const a = k / n * TAU; ctx.fillStyle = 'rgba(20,14,28,0.9)'; ctx.beginPath(); ctx.arc(Math.cos(a) * rr, Math.sin(a) * rr * 0.45 - 4, 3, 0, TAU); ctx.fill(); ctx.fillRect(Math.cos(a) * rr - 2, Math.sin(a) * rr * 0.45 - 2, 4, 8); } ctx.restore(); } };
 
     const G = '#F4C95D', O = '#FF9A4A';
     if (bg === 'dawn') { sky('#1a0f22', '#8a2f22', '#f0a04a'); sun(W * 0.5, H * 0.58, 70, 'rgb(255,110,60)'); rays(W * 0.5, H * 0.58, '#ffb070'); hills(H * 0.6, '#3a1a1c', 18, 1); hills(H * 0.68, '#1f0d12', 12, 3); armySil(H * 0.78, 34, 120, false); armySil(H * 0.9, 26, 150, false, '#06030a'); dust('rgba(255,200,120,0.5)'); }

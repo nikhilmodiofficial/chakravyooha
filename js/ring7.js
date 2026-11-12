@@ -1,15 +1,15 @@
 // Ring 7: scripted siege (unwinnable) -> Mitra Smaran -> Satyaki phases A (Bana-jaala) B (Prana-sanchar) C (duel) D (core shatter).
 import { RING7, CHARACTERS, BOSSES } from './config.js';
-import { Hero, Soldier, TAU, rnd, lerp } from './entities.js';
+import { Hero, Soldier, Pickup as PickupRef, TAU, rnd, lerp } from './entities.js';
 import { Boss } from './bosses.js';
 
 const MAHARATHI = [
-  { name: 'द्रोण', color: '#D9A441', accent: '#FFFFFF', weapon: 'bow' }, { name: 'कृप', color: '#2E4A6B', accent: '#CFF4FF', weapon: 'bow' }, { name: 'कर्ण', color: '#C98A2A', accent: '#FFE8A3', weapon: 'bow' },
-  { name: 'अश्वत्थामा', color: '#4A5A8B', accent: '#CFF4FF', weapon: 'sword' }, { name: 'बृहद्बल', color: '#6B4A2B', accent: '#E0B072', weapon: 'sword' }, { name: 'कृतवर्मा', color: '#5B3A6B', accent: '#8F6CFF', weapon: 'sword' }
+  { name: 'द्रोण', look: 'drona', color: '#D9A441', accent: '#FFFFFF', weapon: 'bow' }, { name: 'कृप', look: 'kripa', color: '#2E4A6B', accent: '#CFF4FF', weapon: 'bow' }, { name: 'कर्ण', look: 'karna', color: '#C98A2A', accent: '#FFE8A3', weapon: 'bow' },
+  { name: 'अश्वत्थामा', look: 'ashwatthama', color: '#4A5A8B', accent: '#CFF4FF', weapon: 'sword' }, { name: 'बृहद्बल', look: 'brihadbala', color: '#6B4A2B', accent: '#E0B072', weapon: 'sword' }, { name: 'कृतवर्मा', look: 'kritavarma', color: '#5B3A6B', accent: '#8F6CFF', weapon: 'sword' }
 ];
 
 class Maharathi extends Soldier {
-  constructor(def, x, y, idx) { super(x, y, def.weapon === 'bow' ? 'archer' : 'melee', 1); this.def = def; this.color = def.color; this.name = def.name; this.r = 24; this.maxHp = 9999; this.hp = 9999; this.speed = 130; this.idx = idx; this.retreat = false; this.accent = def.accent; }
+  constructor(def, x, y, idx) { super(x, y, def.weapon === 'bow' ? 'archer' : 'melee', 1); this.def = def; this.look = def.look; this.color = def.color; this.name = def.name; this.r = 24; this.maxHp = 9999; this.hp = 9999; this.speed = 130; this.idx = idx; this.retreat = false; this.accent = def.accent; }
   takeDamage(d, world, hit) { this.hurtT = 0.1; world.burst(this.x, this.y, '#FFFFFF', 4, 100, true);
     if (hit && hit.kind === 'chakra') { this.pushed = (this.pushed || 0) + (hit.dmg >= 50 ? 2 : 1); const a = Math.atan2(this.y - hit.y, this.x - hit.x); this.vx += Math.cos(a) * hit.knock * 0.9; this.vy += Math.sin(a) * hit.knock * 0.9; this.stun = 0.8; world.audio.sfx('clash'); world.floatText(this.x, this.y - 50, this.pushed >= 2 ? this.name + ' पीछे हटा!' : 'धक्का!', '#F4C95D'); if (this.pushed >= 2) { this.retreat = true; if (this.ring7cb) this.ring7cb(this); } }
     else if (Math.random() < 0.15) world.floatText(this.x, this.y - 50, 'अभेद्य', '#FFFFFF'); }
@@ -32,7 +32,7 @@ export class Ring7 {
   }
   // which hero the local (non-host) player controls right now
   controlled() { return ['A', 'B', 'C'].includes(this.stage) ? 'satyaki' : 'abhimanyu'; }
-  speak(line) { if (!line) return; const c = CHARACTERS[line.who]; this.g.ui.say(c.name, line.text, c.color); this.g.voice.say(line.who, line.text); this.g.netSay(line); }
+  speak(line) { if (!line) return; const c = CHARACTERS[line.who]; const who = line.who === 'enemy' ? (line.text.match(/^([^:]{1,14}):/) || [])[1] || c.name : c.name; this.g.ui.say(who, line.text.replace(/^[^:]{1,14}:\s*/, ''), c.color); this.g.voice.say(line.who, line.text, line.id); this.g.netSay(line); }
   update(dt, intents) {
     this.t += dt; this.evT += dt;
     if (this.stage === 'siege') {
@@ -65,7 +65,15 @@ export class Ring7 {
       if (near && (ia.astra || ia.act)) { this.abhi.chakra = true; this.abhi.hp = Math.max(this.abhi.hp, this.abhi.maxHp * 0.6); this.w.audio.sfx('unlock'); this.w.burst(wk.x, wk.y, '#F4C95D', 30, 260, true); this.w.flash = 0.5; this.stage = 'W1'; this.speak(RING7.chakraLines[0]); setTimeout(() => this.speak(RING7.chakraLines[1]), 4200); this.g.ui.toast('रथ-चक्र: तलवार-बटन = चक्र-घुमाव (चारों ओर धक्का) · गदा-बटन = चक्र-प्रहार', 5000); }
       if (this.abhi.hp < this.abhi.maxHp * 0.15) this.abhi.hp = this.abhi.maxHp * 0.15; // scripted pressure, not a fail state
     }
-    else if (this.stage === 'W1') { const left = this.encirclers.filter(m => !m.retreat).length + this.w.enemies.filter(e => e.alive && !e.def).length; this.g.ui.setObjective('घेरा तोड़ो: चक्र से सबको पीछे धकेलो  (' + left + ' शेष)'); if (left === 0) this.toW2(); if (this.abhi.hp < this.abhi.maxHp * 0.1) this.abhi.hp = this.abhi.maxHp * 0.1; }
+    else if (this.stage === 'W1') { const left = this.encirclers.filter(m => !m.retreat).length + this.w.enemies.filter(e => e.alive && !e.def).length; this.g.ui.setObjective('घेरा तोड़ो: चक्र से सबको पीछे धकेलो  (' + left + ' शेष)'); if (left === 0) this.toK(); if (this.abhi.hp < this.abhi.maxHp * 0.1) this.abhi.hp = this.abhi.maxHp * 0.1; }
+    else if (this.stage === 'K') {
+      const b = this.boss; if (!b) return; this.g.ui.setObjective('धनुर्युद्ध: कर्ण — ' + Math.ceil(b.hpPct * 100) + '%  (कुछ बाण वह हवा में काटेगा)');
+      if (this.abhi.arrows < 6 && !this._quiverT) { this._quiverT = 6; this.w.pickups.push(new PickupRef(this.abhi.x + 80, this.abhi.y, 'quiver')); } if (this._quiverT) { this._quiverT -= dt; if (this._quiverT <= 0) this._quiverT = 0; }
+      if (!this._kBeat1 && b.hpPct <= 0.5) { this._kBeat1 = true; this.karnaWheelBeat(); }
+      if (!this._kBeat2 && b.hpPct <= 0.15) { this._kBeat2 = true; this.karnaBowBreak(); }
+      if (this.abhi.hp < this.abhi.maxHp * 0.12) this.abhi.hp = this.abhi.maxHp * 0.12;
+    }
+    else if (this.stage === 'W1b') { const wk = this.wreck; const near = Math.hypot(this.abhi.x - wk.x, this.abhi.y - wk.y) < 90; const ia = intents[0] || {}; this.g.ui.setObjective(near ? 'रथ-चक्र फिर उठाओ — E' : 'पहिये के पास लौटो'); if (near && (ia.astra || ia.act)) { this.abhi.chakra = true; this.abhi.weaponsBroken.bow = true; this.w.audio.sfx('unlock'); this.w.burst(wk.x, wk.y, '#F4C95D', 30, 260, true); this.speak(RING7.karnaLines[5]); this.toW2(); } }
     else if (this.stage === 'W2') { const left = this.pashHolders.filter(m => !m.retreat).length; this.g.ui.setObjective('सात्यकि को छुड़ाओ: तीनों पाश-धारियों पर चक्र-प्रहार  (' + left + ' शेष)'); this.satyaki.state = 'bound'; this.satyaki.invuln = 1; this.satyaki.x = lerp(this.satyaki.x, this.pashCenter.x, 0.1); this.satyaki.y = lerp(this.satyaki.y, this.pashCenter.y, 0.1); if (left === 0) this.toD(); if (this.abhi.hp < this.abhi.maxHp * 0.1) this.abhi.hp = this.abhi.maxHp * 0.1; }
     else if (this.stage === 'D') {
       const n = this.w.nabhi; const near = h => h && Math.hypot(h.x - n.x, h.y - n.y) < 110;
@@ -77,8 +85,8 @@ export class Ring7 {
       this.g.ui.setObjective('नाभि-स्तंभ के पास जाओ। अभिमन्यु: अस्त्र (U)  ' + (this.corePress.a ? '✓' : '…') + '   सात्यकि: गदा (L)  ' + (this.corePress.s ? '✓' : '…'));
       if (this.corePress.a && this.corePress.s && !this.done) this.shatter();
     }
-    if (this.stage === 'W0' || this.stage === 'W1' || this.stage === 'W2') { this.satyaki.state = 'bound'; this.satyaki.invuln = 1; this.satyaki.stateT = 9; }
-    const abhiActs = this.stage === 'siege' || this.stage === 'W0' || this.stage === 'W1' || this.stage === 'W2' || this.stage === 'D'; if (!abhiActs) this.abhi.invuln = 1; if (this.stage === 'C') { this.abhi.vx = this.abhi.vy = 0; }
+    if (['W0', 'W1', 'K', 'W1b', 'W2'].includes(this.stage)) { this.satyaki.state = 'bound'; this.satyaki.invuln = 1; this.satyaki.stateT = 9; }
+    const abhiActs = ['siege', 'W0', 'W1', 'K', 'W1b', 'W2', 'D'].includes(this.stage); if (!abhiActs) this.abhi.invuln = 1; if (this.stage === 'C') { this.abhi.vx = this.abhi.vy = 0; }
   }
   fall() { this.stage = 'fallen'; this.abhi.state = 'fallen'; this.w.slowT = 2.5; this.w.audio.playMusic('none'); this.w.audio.sfx('die'); this.w.shake(16); for (const m of this.maharathis) { m.retreat = true; } this.g.ui.setObjective(''); this.g.onFallen(); }
   // ---- Satyaki enters
@@ -105,6 +113,15 @@ export class Ring7 {
     for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; const s = new Soldier(this.abhi.x + Math.cos(a) * 170, this.abhi.y + Math.sin(a) * 170, i % 3 === 0 ? 'shield' : 'melee', 1.4); this.w.enemies.push(s); }
     this.wreck = { x: this.abhi.x - 60, y: this.abhi.y + 120, r: 90 }; this.w.arena.clamp(this.wreck); this.abhi.weaponsBroken = { bow: true, gada: true };
     this.w.extraDraw = this.wDraw(); }
+  toK() { this.stage = 'K'; this.abhi.chakra = false; this.abhi.weaponsBroken = { bow: false, gada: true }; this.abhi.arrows = 36; this.w.extraDraw = this.wDraw();
+    this.boss = new Boss('karna2', this.w.arena.cx, this.w.arena.cy - 220, this.w); this.w.boss = this.boss; this.w.bossIntroT = 2.6; this.w.audio.sfx('rumble'); this.w.audio.playMusic('boss', 126);
+    const kd = this.boss.def; this.g.sayRaw(kd.intro, kd.accent, 'boss_karna2_intro'); setTimeout(() => this.speak(RING7.karnaLines[0]), 5200);
+    this.g.ui.toast('धनुष उठाया! तरकश 36। कर्ण के बाण तलवार से काटो, पूरा खिंचा बाण चलाओ।', 5000); this.g.ui.setRing({ name: 'सप्तम चक्र', sub: 'धनुर्युद्ध — अंगराज कर्ण' }); }
+  karnaWheelBeat() { const b = this.boss; b.stun = 9; b.move = null; b.tele = null; this.w.slowT = 1.5; this.w.flash = 0.7; this.w.audio.sfx('shatter'); this.w.shake(14); this.w.burst(b.x + 40, b.y + 20, '#E0B072', 40, 300); this.w.floatText(b.x, b.y - 80, 'रथ का पहिया टूटा!', '#F4C95D'); this.abhi.invuln = 9; this.abhi.state = 'pranam'; this.abhi.stateT = 8.5;
+    setTimeout(() => this.speak(RING7.karnaLines[1]), 900); setTimeout(() => this.speak(RING7.karnaLines[2]), 7400); setTimeout(() => { this.speak(RING7.karnaLines[3]); this.abhi.state = 'idle'; this.abhi.invuln = 0.5; this.g.ui.toast('युद्ध पुनः आरंभ!', 2000); }, 12500); b.stun = 13; }
+  karnaBowBreak() { const b = this.boss; b.invuln = true; b.stun = 99; b.move = null; b.tele = null; this.w.slowT = 1.6; this.w.flash = 0.6; this.w.audio.sfx('shatter'); this.w.shake(12); this.w.burst(b.x, b.y - 20, '#FFE8A3', 40, 320, true); this.w.floatText(b.x, b.y - 80, 'धनुष टूटा!', '#F4C95D');
+    this.g.sayRaw(b.def.defeat, '#F1E7D0', 'boss_karna2_defeat'); setTimeout(() => this.speak(RING7.karnaLines[4]), 6500);
+    setTimeout(() => { b.alive = false; b.defeated = true; this.w.boss = null; this.w.burst(b.x, b.y, '#FFE8A3', 20, 200, true); this.stage = 'W1b'; this.wreck = { x: this.abhi.x + 60, y: this.abhi.y + 110, r: 90 }; this.w.arena.clamp(this.wreck); this.g.ui.setRing({ name: 'सप्तम चक्र', sub: 'व्यूह-नाभि — अभिमन्यु' }); }, 11000); }
   toW2() { this.stage = 'W2'; this.w.audio.sfx('unlock'); this.speak(RING7.freeLines[0]); this.g.ui.toast('घेरा टूटा। अब सात्यकि की ओर →', 2500); }
   wDraw() { return [{ y: -1e9, custom: (ctx, t) => {
     // wreck (Abhimanyu's broken chariot) with the loose wheel glowing until lifted

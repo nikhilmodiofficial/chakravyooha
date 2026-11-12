@@ -1,5 +1,5 @@
 // Renderer: everything procedural on Canvas 2D. Raji-inspired palette, Avatar-style elemental astra VFX.
-import { PALETTE, ASTRAS, WORLD } from './config.js';
+import { PALETTE, ASTRAS, WORLD, LOOK } from './config.js';
 import { TAU, clamp, lerp } from './entities.js';
 import { drawWarrior, makeGroundPattern, shade as shadeHex } from './art.js';
 
@@ -29,20 +29,21 @@ export class Renderer {
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.save(); ctx.translate(W / 2 + sx, H / 2 + sy); ctx.scale(this.cam.zoom, this.cam.zoom); ctx.translate(-this.cam.x, -this.cam.y);
     this.drawArena(ctx, world, t);
+    for (const d of world.decals || []) { ctx.save(); ctx.globalAlpha = Math.min(0.75, d.life / 8); ctx.fillStyle = '#5a0a0a'; ctx.beginPath(); ctx.ellipse(d.x, d.y, d.r, d.r * 0.55, d.a, 0, TAU); ctx.fill(); for (const s2 of d.spots) { ctx.beginPath(); ctx.arc(d.x + s2[0], d.y + s2[1], s2[2], 0, TAU); ctx.fill(); } ctx.restore(); }
     // hazards
     for (const h of world.hazards || []) { ctx.save(); ctx.globalAlpha = 0.85; const rg = ctx.createRadialGradient(h.x, h.y, 5, h.x, h.y, h.r); rg.addColorStop(0, '#FFB347'); rg.addColorStop(0.5, '#B5472D'); rg.addColorStop(1, 'rgba(60,20,10,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, TAU); ctx.fill(); ctx.fillStyle = '#2a1a12'; ctx.fillRect(h.x - 26, h.y - 10, 52, 20); ctx.beginPath(); ctx.arc(h.x - 22, h.y + 12, 10, 0, TAU); ctx.arc(h.x + 22, h.y + 12, 10, 0, TAU); ctx.fill(); for (let i = 0; i < 3; i++) { const fy = h.y - 10 - ((t * 60 + i * 23) % 40); ctx.fillStyle = `rgba(255,${120 + i * 40},40,${0.6 - ((t * 60 + i * 23) % 40) / 70})`; ctx.beginPath(); ctx.arc(h.x + Math.sin(t * 7 + i) * 10, fy, 8 - i * 2, 0, TAU); ctx.fill(); } ctx.restore(); }
     // telegraphs
     if (world.boss && world.boss.alive && world.boss.tele) this.drawTele(ctx, world.boss, t);
     for (const e of world.enemies) if (e.state === 'tele') { ctx.save(); ctx.strokeStyle = 'rgba(255,80,60,0.8)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 14, e.facing - 0.9, e.facing + 0.9); ctx.stroke(); ctx.restore(); }
     // kripa marker
-    if (world.boss && world.boss.alive && world.boss.key === 'kripa') { const k = world.boss.extras.kripa; this.drawHuman(ctx, { x: k.x, y: k.y, r: 22, facing: Math.atan2(world.heroes[0].y - k.y, world.heroes[0].x - k.x), walkT: 0, hurtT: 0, team: 'kaurava', color: '#2E4A6B', accent: '#CFF4FF', weapon: 'bow', name: 'कृपाचार्य', mukut: 'sage', cape: '#1a2a3a' }, t); }
+    if (world.boss && world.boss.alive && world.boss.key === 'kripa') { const k = world.boss.extras.kripa; this.drawHuman(ctx, { x: k.x, y: k.y, r: 22, facing: Math.atan2(world.heroes[0].y - k.y, world.heroes[0].x - k.x), walkT: 0, hurtT: 0, team: 'kaurava', color: '#2E4A6B', accent: '#CFF4FF', weapon: 'bow', name: 'कृपाचार्य', look: 'kripa' }, t); }
     // trails, pickups, sort & draw entities by y
     for (const tr of world.trails) { ctx.save(); ctx.globalAlpha = tr.life * 1.5; ctx.fillStyle = tr.color; ctx.beginPath(); ctx.arc(tr.x, tr.y, tr.r, 0, TAU); ctx.fill(); ctx.restore(); }
     for (const p of world.pickups) this.drawPickup(ctx, p, t);
     if (world.nabhi) this.drawNabhi(ctx, world.nabhi, t);
     const ents = [...world.heroes, ...world.enemies]; if (world.boss && world.boss.alive) ents.push(world.boss); if (world.extraDraw) ents.push(...world.extraDraw);
     ents.sort((a, b) => a.y - b.y);
-    for (const e of ents) { if (e.isBoss) this.drawBoss(ctx, e, t); else if (e.kind) this.drawHero(ctx, e, t); else if (e.custom) e.custom(ctx, t); else this.drawHuman(ctx, { x: e.x, y: e.y, r: e.r, facing: e.facing, walkT: e.walkT, hurtT: e.hurtT, team: 'kaurava', color: e.color, accent: '#D9A441', weapon: e.type === 'archer' ? 'bow' : e.type === 'shield' ? 'shield' : 'sword', clone: e.clone, name: e.name, hp: e.hp, maxHp: e.maxHp, stun: e.stun, state: e.state, mukut: e.def ? 'king' : (e.name ? 'prince' : 'band'), cape: e.def ? shadeHex(e.color, -40) : null }, t); }
+    for (const e of ents) { if (e.isBoss) this.drawBoss(ctx, e, t); else if (e.kind) this.drawHero(ctx, e, t); else if (e.custom) e.custom(ctx, t); else this.drawHuman(ctx, { x: e.x, y: e.y, r: e.r, facing: e.facing, walkT: e.walkT, hurtT: e.hurtT, team: 'kaurava', color: e.color, accent: '#D9A441', weapon: e.type === 'archer' ? 'bow' : e.type === 'shield' ? 'shield' : 'sword', clone: e.clone, name: e.name, hp: e.hp, maxHp: e.maxHp, stun: e.stun, state: e.state, look: e.look || null, mukut: e.def ? 'king' : (e.name ? 'prince' : 'band'), cape: e.def ? shadeHex(e.color, -40) : null, wounds: e.maxHp > 100 ? 0 : 1 - e.hp / e.maxHp }, t); }
     for (const s of world.slashes) this.drawSlash(ctx, s);
     for (const p of world.projectiles) this.drawProjectile(ctx, p, t);
     for (const p of world.particles) { ctx.save(); if (p.add) ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, TAU); ctx.fill(); ctx.restore(); }
@@ -115,18 +116,19 @@ export class Renderer {
     const { x, y, r } = o; const s = r / 20 * 1.15; this.drawShadow(ctx, x, y, r);
     if (o.clone) { ctx.save(); ctx.globalAlpha = 0.7 + 0.25 * Math.sin(t * 20); }
     const pand = o.team === 'pandava';
-    const pal = o.pal || { skin: pand ? '#d4976a' : '#b87a52', cloth: o.cloth || (pand ? '#2E4A8B' : '#4a1e1e'), armor: o.color, accent: o.accent, hair: '#1a0f0a' };
+    const L = o.look ? LOOK[o.look] : null;
+    const pal = o.pal || { skin: L ? L.skin : (pand ? '#d4976a' : '#b87a52'), cloth: L ? L.cloth : (o.cloth || (pand ? '#2E4A8B' : '#4a1e1e')), armor: L ? L.armor : o.color, accent: L ? L.accent : o.accent, hair: L && L.hairColor || '#1a0f0a' };
     const atk = o.attack !== undefined ? o.attack : (o.state === 'tele' ? 0 : (o.state === 'strike' ? 1 : 0.15));
-    drawWarrior(ctx, { x, y, s, facing: o.facing, walkT: o.walkT, weapon: o.weapon, pal, hurt: o.hurtT > 0, cape: o.cape, mukut: o.mukut || (o.isBoss ? 'king' : 'band'), attack: atk, charge: o.charge || 0 });
+    drawWarrior(ctx, { x, y, s, facing: o.facing, walkT: o.walkT, weapon: o.weapon, pal, hurt: o.hurtT > 0, cape: L ? L.cape : o.cape, scarf: L ? L.scarf : null, hair: L ? L.hair : null, armorStyle: L ? L.armorStyle : null, mukut: (L && L.mukut) || o.mukut || (o.isBoss ? 'king' : 'band'), attack: atk, charge: o.charge || 0, wounds: o.wounds || 0 });
     if (o.clone) ctx.restore();
     if (o.stun > 0) { ctx.fillStyle = '#F4C95D'; for (let i = 0; i < 3; i++) { const a = t * 6 + i * 2.1; ctx.beginPath(); ctx.arc(x + Math.cos(a) * 16 * s, y - 60 * s + Math.sin(a) * 4, 2.5, 0, TAU); ctx.fill(); } }
     if (o.name && o.hp !== undefined && o.maxHp > 40) { ctx.save(); ctx.font = '13px "Noto Serif Devanagari", serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#F1E7D0'; ctx.fillText(o.name, x, y - r * 3.4); ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x - 24, y - r * 3.2, 48, 4); ctx.fillStyle = '#C23B3B'; ctx.fillRect(x - 24, y - r * 3.2, 48 * o.hp / o.maxHp, 4); ctx.restore(); }
   }
   drawHero(ctx, h, t) {
     const sat = h.kind === 'satyaki'; const w = h.chakra ? 'chakra' : h.charging ? 'bow' : (h.state === 'gada' ? 'gada' : 'sword');
-    if (h.state === 'dodge') { ctx.save(); ctx.globalAlpha = 0.5; } const down = !h.alive || h.state === 'fallen' || h.state === 'bound'; if (down) { ctx.save(); ctx.translate(h.x, h.y); ctx.rotate((h.alive ? -0.55 : -1.4) * (Math.cos(h.facing) >= 0 ? 1 : -1)); ctx.translate(-h.x, -h.y + (h.alive ? 10 : 0)); }
+    if (h.state === 'dodge') { ctx.save(); ctx.globalAlpha = 0.5; } const down = !h.alive || h.state === 'fallen' || h.state === 'bound' || h.state === 'pranam'; if (down) { ctx.save(); ctx.translate(h.x, h.y); ctx.rotate((h.state === 'pranam' ? 0.5 : h.alive ? -0.55 : -1.4) * (Math.cos(h.facing) >= 0 ? 1 : -1)); ctx.translate(-h.x, -h.y + (h.alive ? 10 : 0)); }
     const atk = h.state === 'sword' ? clamp(1 - h.stateT / 0.18, 0, 1) : h.state === 'gada' ? (h._gadaPending !== undefined ? clamp(1 - h._gadaPending / 0.35, 0, 0.3) : 1) : 0.15;
-    this.drawHuman(ctx, { x: h.x, y: h.y, r: h.r, facing: h.state === 'idle' && !(h.vx || h.vy) ? h.facing : (h.charging || h.state === 'sword' || h.state === 'gada' ? h.aim : h.facing), walkT: h.walkT, hurtT: h.hurtT, team: 'pandava', color: sat ? '#1F6B4A' : '#C9922A', accent: sat ? '#C8D6D0' : '#F4C95D', cloth: sat ? '#1a2a22' : '#2E4A8B', cape: sat ? '#0f3a2a' : '#8B1E1E', mukut: sat ? 'crest' : 'prince', weapon: w, stun: h.state === 'stunned' ? 1 : 0, attack: atk, charge: h.charging ? h.charge : 0 }, t);
+    this.drawHuman(ctx, { x: h.x, y: h.y, r: h.r, facing: h.state === 'idle' && !(h.vx || h.vy) ? h.facing : (h.charging || h.state === 'sword' || h.state === 'gada' ? h.aim : h.facing), walkT: h.walkT, hurtT: h.hurtT, team: 'pandava', look: sat ? 'satyaki' : 'abhimanyu', color: sat ? '#1F6B4A' : '#C9922A', accent: sat ? '#C8D6D0' : '#F4C95D', weapon: w, stun: h.state === 'stunned' ? 1 : 0, attack: atk, charge: h.charging ? h.charge : 0, wounds: 1 - h.hp / h.maxHp }, t);
     if (down) ctx.restore(); if (h.state === 'dodge') ctx.restore();
     // astra gem glow
     if (h.astra && !h.astraUsed) { const A = ASTRAS[h.astra]; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(t * 5); ctx.fillStyle = A.glow; ctx.beginPath(); ctx.arc(h.x - 8, h.y - 12, 5, 0, TAU); ctx.fill(); ctx.restore(); }
@@ -141,11 +143,10 @@ export class Renderer {
       // horses
       for (const hy of [-18, 18]) { const hc = hy < 0 ? '#2a1a12' : '#3a2416'; ctx.fillStyle = hc; ctx.strokeStyle = 'rgba(12,8,14,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(62, hy, 34, 12, 0, 0, TAU); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(90, hy - 6); ctx.lineTo(108, hy - 16); ctx.lineTo(112, hy - 2); ctx.lineTo(98, hy + 6); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#1a0f0a'; ctx.beginPath(); ctx.moveTo(70, hy - 10); ctx.quadraticCurveTo(90, hy - 20, 104, hy - 14); ctx.lineTo(96, hy - 6); ctx.closePath(); ctx.fill(); ctx.strokeStyle = hc; ctx.lineWidth = 4; const la = Math.sin(t * 14 + hy) * 9; ctx.beginPath(); ctx.moveTo(44, hy + 8); ctx.lineTo(40 + la, hy + 24); ctx.moveTo(80, hy + 8); ctx.lineTo(84 - la, hy + 24); ctx.stroke(); ctx.strokeStyle = '#D9A441'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(22, hy); ctx.lineTo(96, hy - 8); ctx.stroke(); }
       ctx.fillStyle = d.accent; ctx.beginPath(); ctx.moveTo(-30, -22); ctx.lineTo(-30, -58); ctx.lineTo(-6, -50); ctx.lineTo(-30, -42); ctx.fill(); ctx.restore();
-      this.drawHuman(ctx, { x: b.x, y: b.y - 14, r: 24, facing: b.facing, walkT: 0, hurtT: b.hurtT, team: 'kaurava', color: d.color, accent: d.accent, weapon: 'bow', stun: b.stun, isBoss: true, attack: 0.1 }, t);
+      this.drawHuman(ctx, { x: b.x, y: b.y - 14, r: 24, facing: b.facing, walkT: 0, hurtT: b.hurtT, team: 'kaurava', look: d.look, color: d.color, accent: d.accent, weapon: 'bow', stun: b.stun, isBoss: true, attack: 0.1, wounds: 1 - b.hp / b.maxHp }, t);
     } else {
       const batk = b.tele ? 0 : (b.move ? 0.9 : 0.15);
-      this.drawHuman(ctx, { x: b.x, y: b.y, r: b.r, facing: b.facing, walkT: b.walkT, hurtT: b.hurtT, team: 'kaurava', color: d.color, accent: d.accent, weapon: d.weapon === 'maya' ? 'sword' : d.weapon, stun: b.stun, isBoss: true, cape: shadeHex(d.color, -40), attack: batk }, t);
-      if (b.kavach) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25 + 0.1 * Math.sin(t * 4); ctx.strokeStyle = '#FFE8A3'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(b.x, b.y - 10, b.r + 10, 0, TAU); ctx.stroke(); ctx.restore(); }
+      this.drawHuman(ctx, { x: b.x, y: b.y, r: b.r, facing: b.facing, walkT: b.walkT, hurtT: b.hurtT, team: 'kaurava', look: d.look, color: d.color, accent: d.accent, weapon: d.weapon === 'maya' ? 'sword' : d.weapon, stun: b.stun, isBoss: true, attack: batk, wounds: 1 - b.hp / b.maxHp }, t);
       if (b.key === 'kripa' && b.extras.glow > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = b.extras.glow; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(b.x, b.y - 10, b.r + 14, 0, TAU); ctx.stroke(); ctx.font = 'bold 16px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText('सत्य', b.x, b.y - b.r * 2.6); ctx.restore(); }
     }
     if (b.bound > 0) { ctx.save(); ctx.strokeStyle = '#5FD88A'; ctx.lineWidth = 3; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(b.x, b.y - 8 + i * 8 - 8, b.r + 6, 6, Math.sin(t * 3 + i) * 0.3, 0, TAU); ctx.stroke(); } ctx.restore(); }

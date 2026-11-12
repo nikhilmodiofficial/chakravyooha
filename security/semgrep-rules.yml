@@ -1,0 +1,110 @@
+rules:
+  - id: js-innerhtml-assignment
+    languages: [javascript]
+    severity: ERROR
+    message: "innerHTML/outerHTML assignment with non-literal data can lead to DOM XSS. Use textContent or createElement."
+    patterns:
+      - pattern-either:
+          - pattern: $X.innerHTML = $Y
+          - pattern: $X.outerHTML = $Y
+      - pattern-not: $X.innerHTML = ""
+      - pattern-not: $X.innerHTML = "..."
+  - id: js-insert-adjacent-html
+    languages: [javascript]
+    severity: ERROR
+    message: "insertAdjacentHTML with dynamic data is a DOM XSS sink."
+    pattern: $X.insertAdjacentHTML($P, $Y)
+  - id: js-document-write
+    languages: [javascript]
+    severity: ERROR
+    message: "document.write is an XSS sink and blocks parsing."
+    pattern-either:
+      - pattern: document.write(...)
+      - pattern: document.writeln(...)
+  - id: js-eval
+    languages: [javascript]
+    severity: ERROR
+    message: "eval / new Function / string setTimeout execute arbitrary code."
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+      - pattern: setTimeout("...", ...)
+      - pattern: setInterval("...", ...)
+  - id: js-location-href-from-input
+    languages: [javascript]
+    severity: WARNING
+    message: "Assigning location from dynamic data can be an open redirect / javascript: URL sink."
+    pattern-either:
+      - pattern: location.href = $X
+      - pattern: window.location = $X
+      - pattern: location.assign($X)
+      - pattern: location.replace($X)
+  - id: js-window-open-no-noopener
+    languages: [javascript]
+    severity: WARNING
+    message: "window.open without 'noopener' lets the opened page access window.opener."
+    patterns:
+      - pattern: window.open($U, $T)
+  - id: js-postmessage-wildcard
+    languages: [javascript]
+    severity: WARNING
+    message: "postMessage with '*' target origin leaks data to any frame."
+    pattern: $W.postMessage($M, "*")
+  - id: js-message-listener-no-origin-check
+    languages: [javascript]
+    severity: WARNING
+    message: "message event handler should verify event.origin."
+    patterns:
+      - pattern: window.addEventListener("message", $F)
+  - id: js-script-src-dynamic
+    languages: [javascript]
+    severity: WARNING
+    message: "Dynamically setting a script src: ensure it is same-origin or pinned with SRI."
+    patterns:
+      - pattern: $S.src = $X
+      - metavariable-regex:
+          metavariable: $X
+          regex: "(?i)http"
+  - id: js-math-random-for-security
+    languages: [javascript]
+    severity: WARNING
+    message: "Math.random is not cryptographically secure; do not use it for tokens/room codes."
+    patterns:
+      - pattern-inside: |
+          function $F(...) { ... }
+      - pattern: Math.random()
+      - metavariable-regex:
+          metavariable: $F
+          regex: "(?i)(room|token|secret|code|id)"
+  - id: js-json-parse-untrusted-no-try
+    languages: [javascript]
+    severity: INFO
+    message: "JSON.parse of external data should be wrapped in try/catch and validated."
+    patterns:
+      - pattern: JSON.parse($X)
+      - pattern-not-inside: |
+          try { ... } catch ($E) { ... }
+  - id: js-dangerous-url-scheme
+    languages: [javascript]
+    severity: WARNING
+    message: "javascript: URL scheme in href/src is an XSS sink."
+    pattern-regex: "javascript:"
+  - id: js-hardcoded-secret
+    languages: [javascript]
+    severity: ERROR
+    message: "Possible hardcoded credential."
+    pattern-regex: "(?i)(api[_-]?key|secret|password|passwd|token)\\s*[:=]\\s*['\"][A-Za-z0-9_\\-]{16,}['\"]"
+  - id: js-unsafe-regex-user-input
+    languages: [javascript]
+    severity: INFO
+    message: "RegExp constructed from a variable can allow ReDoS; prefer literals."
+    pattern: new RegExp($X)
+  - id: js-prototype-pollution-assign
+    languages: [javascript]
+    severity: WARNING
+    message: "Object.assign / spread of untrusted objects onto app state can pollute prototypes or override fields; whitelist keys."
+    patterns:
+      - pattern: Object.assign($T, $S)
+      - metavariable-regex:
+          metavariable: $S
+          regex: "(?i)(msg|data|d|payload|snap|s)$"

@@ -4,50 +4,78 @@ export const TAU = Math.PI * 2;
 // ---------- in-game painted warrior ----------
 // o: {x,y,s(scale ~1), facing, walkT, weapon:'sword'|'gada'|'bow'|'shield'|'dual', pal:{skin,cloth,armor,accent,hair}, hurt, cape, mukut:'prince'|'king'|'none', attack:0..1, aimUp}
 export function drawWarrior(ctx, o) {
-  const dir = Math.cos(o.facing) >= 0 ? 1 : -1; const s = o.s || 1; const p = o.pal; const hurt = !!o.hurt;
-  const leg = Math.sin(o.walkT || 0); const bob = Math.abs(Math.cos(o.walkT || 0)) * 1.5;
-  ctx.save(); ctx.translate(o.x, o.y); ctx.scale(dir * s, s); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  const ink = 'rgba(12,8,14,0.9)';
-  const fill = (c, path) => { ctx.fillStyle = hurt ? '#fff' : c; ctx.beginPath(); path(); ctx.closePath(); ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.stroke(); };
-  // cape (behind)
-  if (o.cape) { ctx.fillStyle = hurt ? '#fff' : o.cape; ctx.beginPath(); ctx.moveTo(-10, -26 - bob); ctx.quadraticCurveTo(-26 - leg * 4, -10, -22 - leg * 6, 14); ctx.lineTo(-6, 10); ctx.closePath(); ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.stroke(); }
-  // legs
-  ctx.strokeStyle = ink; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(-6, 6); ctx.lineTo(-8 + leg * 7, 22); ctx.moveTo(6, 6); ctx.lineTo(8 - leg * 7, 22); ctx.stroke();
-  ctx.strokeStyle = hurt ? '#fff' : p.skin; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(-6, 6); ctx.lineTo(-8 + leg * 7, 22); ctx.moveTo(6, 6); ctx.lineTo(8 - leg * 7, 22); ctx.stroke();
+  const dir = Math.cos(o.facing) >= 0 ? 1 : -1; const s = o.s || 1; const p = o.pal; const hurt = !!o.hurt; const w = o.wounds || 0;
+  const leg = Math.sin(o.walkT || 0); const bob = Math.abs(Math.cos(o.walkT || 0)) * 1.5; const hair = o.hair || (o.mukut === 'king' ? 'king' : o.mukut === 'sage' ? 'sage' : o.mukut === 'crest' ? 'crest' : o.mukut === 'prince' ? 'prince' : 'band');
+  ctx.save(); ctx.translate(o.x, o.y + 4 * s); ctx.scale(dir * s * 1.04, s * 1.2); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const ink = 'rgba(12,8,14,0.92)'; const skin = hurt ? '#ffffff' : p.skin; const skinD = hurt ? '#ffffff' : shade(p.skin, -40); const skinL = hurt ? '#ffffff' : shade(p.skin, 28);
+  const fill = (c, path, lw = 2) => { ctx.fillStyle = hurt ? '#fff' : c; ctx.beginPath(); path(); ctx.closePath(); ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = lw; ctx.stroke(); };
+  const limb = (x0, y0, x1, y1, wd, c) => { ctx.strokeStyle = ink; ctx.lineWidth = wd + 3; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.strokeStyle = c; ctx.lineWidth = wd; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); };
+  const muscle = (x, y, rx, ry, a) => { ctx.fillStyle = skinL; ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, a, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; };
+  // scarf / cape behind
+  if (o.scarf) { const fl = Math.sin((o.walkT || 0) * 0.7) * 5; ctx.fillStyle = hurt ? '#fff' : o.scarf; ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-8, -30 - bob); ctx.quadraticCurveTo(-30 - fl, -26, -40 - fl * 2, -6 + fl); ctx.quadraticCurveTo(-34 - fl, -4, -30 - fl, -2); ctx.quadraticCurveTo(-22, -14, -10, -22 - bob); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-6, -28 - bob); ctx.quadraticCurveTo(-24 - fl, -20, -36 - fl * 2, 6 + fl); ctx.lineTo(-30 - fl, 8 + fl); ctx.quadraticCurveTo(-20, -12, -8, -22 - bob); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  else if (o.cape) { ctx.fillStyle = hurt ? '#fff' : o.cape; ctx.beginPath(); ctx.moveTo(-12, -28 - bob); ctx.quadraticCurveTo(-28 - leg * 4, -10, -24 - leg * 6, 16); ctx.lineTo(-4, 10); ctx.closePath(); ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.stroke(); }
+  // legs (muscular)
+  limb(-7, 6, -9 + leg * 7, 22, 7.5, skin); limb(7, 6, 9 - leg * 7, 22, 7.5, skin); muscle(-7, 10, 3, 5, 0.2); muscle(7, 10, 3, 5, -0.2);
+  // anklets
+  ctx.strokeStyle = p.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-12 + leg * 7, 19); ctx.lineTo(-6 + leg * 7, 19); ctx.moveTo(6 - leg * 7, 19); ctx.lineTo(12 - leg * 7, 19); ctx.stroke();
   // dhoti
-  fill(p.cloth, () => { ctx.moveTo(-12, -4 - bob); ctx.lineTo(12, -4 - bob); ctx.lineTo(15, 12); ctx.lineTo(0, 9); ctx.lineTo(-15, 12); });
-  ctx.strokeStyle = p.accent; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-13, 10); ctx.lineTo(0, 7); ctx.lineTo(13, 10); ctx.stroke();
-  // belt
-  fill(p.accent, () => { ctx.rect(-12, -6 - bob, 24, 4); });
-  // torso / armor with gradient
-  const g = ctx.createLinearGradient(-12, -28, 12, 0); g.addColorStop(0, shade(p.armor, 35)); g.addColorStop(0.55, p.armor); g.addColorStop(1, shade(p.armor, -45));
-  ctx.fillStyle = hurt ? '#fff' : g; ctx.beginPath(); ctx.moveTo(-14, -28 - bob); ctx.lineTo(14, -28 - bob); ctx.lineTo(12, -4 - bob); ctx.lineTo(-12, -4 - bob); ctx.closePath(); ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.stroke();
-  // chest ornament
-  ctx.fillStyle = p.accent; ctx.beginPath(); ctx.moveTo(0, -20 - bob); ctx.lineTo(5, -14 - bob); ctx.lineTo(0, -8 - bob); ctx.lineTo(-5, -14 - bob); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = p.accent; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-13, -24 - bob); ctx.lineTo(13, -24 - bob); ctx.stroke();
-  // shoulder pads
-  fill(shade(p.armor, 20), () => { ctx.ellipse(-13, -27 - bob, 6, 4, 0, 0, TAU); }); fill(shade(p.armor, 20), () => { ctx.ellipse(13, -27 - bob, 6, 4, 0, 0, TAU); });
-  // back arm (holds bow when bow)
-  ctx.strokeStyle = ink; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(-11, -24 - bob); ctx.lineTo(-15 - leg * 3, -8 - bob); ctx.stroke(); ctx.strokeStyle = hurt ? '#fff' : p.skin; ctx.lineWidth = 4.5; ctx.beginPath(); ctx.moveTo(-11, -24 - bob); ctx.lineTo(-15 - leg * 3, -8 - bob); ctx.stroke();
-  // neck + head
-  ctx.fillStyle = hurt ? '#fff' : p.skin; ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -37 - bob, 9, 0, TAU); ctx.fill(); ctx.stroke();
-  // hair/helmet
-  if (o.mukut === 'none') { ctx.fillStyle = p.hair || '#1a0f0a'; ctx.beginPath(); ctx.arc(0, -39 - bob, 9.5, Math.PI * 1.05, Math.PI * 1.95); ctx.fill(); }
-  else { // helmet band + crown
-    fill(p.armor, () => { ctx.moveTo(-10, -40 - bob); ctx.quadraticCurveTo(0, -52 - bob, 10, -40 - bob); ctx.lineTo(10, -37 - bob); ctx.lineTo(-10, -37 - bob); });
-    ctx.fillStyle = p.accent; ctx.fillRect(-10, -40 - bob, 20, 2.5);
-    if (o.mukut === 'king') { fill(p.accent, () => { ctx.moveTo(-8, -46 - bob); ctx.lineTo(-4, -58 - bob); ctx.lineTo(0, -48 - bob); ctx.lineTo(4, -60 - bob); ctx.lineTo(8, -46 - bob); }); }
-    else if (o.mukut === 'prince') { fill(p.accent, () => { ctx.moveTo(-3, -48 - bob); ctx.lineTo(0, -62 - bob); ctx.lineTo(3, -48 - bob); }); }
-    else if (o.mukut === 'crest') { fill(p.accent, () => { ctx.moveTo(-2, -48 - bob); ctx.quadraticCurveTo(10, -70 - bob, 16, -50 - bob); ctx.lineTo(2, -46 - bob); }); }
+  fill(p.cloth, () => { ctx.moveTo(-13, -5 - bob); ctx.lineTo(13, -5 - bob); ctx.lineTo(16, 12); ctx.lineTo(0, 9); ctx.lineTo(-16, 12); });
+  ctx.strokeStyle = p.accent; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-14, 10); ctx.lineTo(0, 7); ctx.lineTo(14, 10); ctx.moveTo(-6, -4 - bob); ctx.quadraticCurveTo(-4, 4, -8, 10); ctx.stroke();
+  // belt / kamarbandh
+  fill(p.accent, () => { ctx.rect(-13, -7 - bob, 26, 4.5); }, 1.5); ctx.fillStyle = ink; ctx.fillRect(-2, -7 - bob, 4, 4.5);
+  // torso: skin first (bare, muscular), then armor plate on top
+  fill(skin, () => { ctx.moveTo(-16, -30 - bob); ctx.lineTo(16, -30 - bob); ctx.lineTo(13, -5 - bob); ctx.lineTo(-13, -5 - bob); });
+  // pecs + abs
+  muscle(-7, -24 - bob, 6, 4, 0.2); muscle(7, -24 - bob, 6, 4, -0.2); ctx.strokeStyle = skinD; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(0, -19 - bob); ctx.lineTo(0, -7 - bob); ctx.moveTo(-6, -16 - bob); ctx.lineTo(6, -16 - bob); ctx.moveTo(-6, -11 - bob); ctx.lineTo(6, -11 - bob); ctx.stroke();
+  if (o.armorStyle !== 'none') {
+    const g = ctx.createLinearGradient(-12, -30, 12, -6); g.addColorStop(0, shade(p.armor, 45)); g.addColorStop(0.5, p.armor); g.addColorStop(1, shade(p.armor, -50));
+    ctx.fillStyle = hurt ? '#fff' : g; ctx.beginPath();
+    if (o.armorStyle === 'kavach') { ctx.moveTo(-15, -29 - bob); ctx.lineTo(15, -29 - bob); ctx.lineTo(13, -6 - bob); ctx.lineTo(0, -3 - bob); ctx.lineTo(-13, -6 - bob); } // full breastplate
+    else if (o.armorStyle === 'strap') { ctx.moveTo(-15, -29 - bob); ctx.lineTo(-7, -29 - bob); ctx.lineTo(8, -8 - bob); ctx.lineTo(8, -5 - bob); ctx.lineTo(-13, -5 - bob); ctx.lineTo(-13, -12 - bob); } // cross strap + side plate (bare chest look)
+    else { ctx.moveTo(-15, -29 - bob); ctx.lineTo(15, -29 - bob); ctx.lineTo(12, -12 - bob); ctx.lineTo(0, -9 - bob); ctx.lineTo(-12, -12 - bob); } // half plate
+    ctx.closePath(); ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.stroke();
+    if (o.armorStyle === 'kavach') { // sun motif
+      ctx.strokeStyle = hurt ? '#fff' : shade(p.accent, 10); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -17 - bob, 5, 0, TAU); ctx.stroke(); for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 6.5, -17 - bob + Math.sin(a) * 6.5); ctx.lineTo(Math.cos(a) * 9.5, -17 - bob + Math.sin(a) * 9.5); ctx.stroke(); }
+    } else { ctx.fillStyle = p.accent; ctx.beginPath(); ctx.moveTo(0, -24 - bob); ctx.lineTo(4, -18 - bob); ctx.lineTo(0, -12 - bob); ctx.lineTo(-4, -18 - bob); ctx.closePath(); ctx.fill(); }
   }
-  // face hint (eye)
-  ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(4, -38 - bob, 1.3, 0, TAU); ctx.fill();
-  // front arm + weapon
+  // necklace
+  ctx.strokeStyle = p.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -33 - bob, 7, 0.3, Math.PI - 0.3); ctx.stroke();
+  // shoulder pads
+  fill(shade(p.armor, 20), () => { ctx.ellipse(-15, -29 - bob, 7, 4.5, 0.2, 0, TAU); }); fill(shade(p.armor, 20), () => { ctx.ellipse(15, -29 - bob, 7, 4.5, -0.2, 0, TAU); });
+  // back arm (biceps)
+  limb(-13, -26 - bob, -18 - leg * 3, -9 - bob, 6.5, skin); muscle(-15, -20 - bob, 3.6, 5, 0.4); ctx.strokeStyle = p.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-17, -16 - bob); ctx.lineTo(-13, -14 - bob); ctx.stroke();
+  // neck + head
+  ctx.fillStyle = skin; ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-4, -31 - bob); ctx.lineTo(-4, -36 - bob); ctx.lineTo(4, -36 - bob); ctx.lineTo(4, -31 - bob); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0, -41 - bob, 7.6, 8.2, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  // jaw shading, eye, brow (determined)
+  ctx.fillStyle = skinD; ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.ellipse(0, -36 - bob, 7, 4, 0, 0, Math.PI); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.fillStyle = ink; ctx.beginPath(); ctx.ellipse(4, -41 - bob, 1.6, 1.1, 0, 0, TAU); ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(1, -44.5 - bob); ctx.lineTo(7, -43.5 - bob); ctx.stroke();
+  // hair / headgear
+  const hc = hurt ? '#fff' : (p.hair || '#1a0f0a');
+  if (hair === 'glory') { // Abhimanyu: swept-back voluminous hair, red band, tilak
+    fill(hc, () => { ctx.moveTo(-9, -44 - bob); ctx.quadraticCurveTo(-6, -56 - bob, 4, -53 - bob); ctx.quadraticCurveTo(12, -52 - bob, 10, -44 - bob); ctx.quadraticCurveTo(14, -50 - bob, 11, -56 - bob); ctx.quadraticCurveTo(-2, -64 - bob, -14, -54 - bob); ctx.quadraticCurveTo(-20, -44 - bob, -16, -30 - bob); ctx.quadraticCurveTo(-13, -36 - bob, -10, -36 - bob); }, 1.5);
+    ctx.fillStyle = hurt ? '#fff' : '#B5201E'; ctx.fillRect(-9, -47 - bob, 17, 3); ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.strokeRect(-9, -47 - bob, 17, 3); ctx.fillStyle = '#F4C95D'; ctx.beginPath(); ctx.arc(7, -45.5 - bob, 1.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#C0392B'; ctx.beginPath(); ctx.moveTo(4, -44 - bob); ctx.lineTo(5.3, -41 - bob); ctx.lineTo(4, -39.5 - bob); ctx.lineTo(2.7, -41 - bob); ctx.closePath(); ctx.fill();
+  } else if (hair === 'tied') { // Satyaki: long hair tied back in a warrior knot, tilak
+    fill(hc, () => { ctx.moveTo(-9, -45 - bob); ctx.quadraticCurveTo(0, -54 - bob, 9, -45 - bob); ctx.lineTo(8, -43 - bob); ctx.quadraticCurveTo(0, -48 - bob, -8, -43 - bob); }, 1.5);
+    fill(hc, () => { ctx.ellipse(-11, -47 - bob, 5, 4, -0.5, 0, TAU); }, 1.5); fill(hc, () => { ctx.moveTo(-13, -45 - bob); ctx.quadraticCurveTo(-20, -34 - bob, -16, -24 - bob); ctx.lineTo(-13, -26 - bob); ctx.quadraticCurveTo(-15, -36 - bob, -11, -42 - bob); }, 1.2);
+    ctx.strokeStyle = p.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(-11, -47 - bob, 5, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = '#C0392B'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(4, -45 - bob); ctx.lineTo(4, -39.5 - bob); ctx.stroke();
+  } else if (hair === 'rugged') { // Karna: loose shaggy hair hiding one ear; kundal on the visible ear
+    fill(hc, () => { ctx.moveTo(-10, -46 - bob); ctx.quadraticCurveTo(-4, -56 - bob, 8, -52 - bob); ctx.quadraticCurveTo(13, -50 - bob, 11, -42 - bob); ctx.lineTo(13, -34 - bob); ctx.lineTo(9, -38 - bob); ctx.lineTo(10, -44 - bob); ctx.quadraticCurveTo(4, -49 - bob, -4, -46 - bob); ctx.lineTo(-7, -38 - bob); ctx.quadraticCurveTo(-13, -36 - bob, -14, -30 - bob); ctx.lineTo(-16, -40 - bob); }, 1.5);
+  } else if (hair === 'king') { fill(p.armor, () => { ctx.moveTo(-10, -45 - bob); ctx.quadraticCurveTo(0, -56 - bob, 10, -45 - bob); ctx.lineTo(10, -42 - bob); ctx.lineTo(-10, -42 - bob); }); ctx.fillStyle = p.accent; ctx.fillRect(-10, -45 - bob, 20, 2.5); fill(p.accent, () => { ctx.moveTo(-8, -50 - bob); ctx.lineTo(-4, -62 - bob); ctx.lineTo(0, -52 - bob); ctx.lineTo(4, -64 - bob); ctx.lineTo(8, -50 - bob); }); }
+  else if (hair === 'prince') { fill(hc, () => { ctx.moveTo(-9, -45 - bob); ctx.quadraticCurveTo(0, -55 - bob, 9, -45 - bob); ctx.lineTo(8, -43 - bob); ctx.quadraticCurveTo(0, -49 - bob, -8, -43 - bob); }, 1.5); ctx.fillStyle = p.accent; ctx.fillRect(-9, -47 - bob, 18, 2.5); fill(p.accent, () => { ctx.moveTo(-3, -49 - bob); ctx.lineTo(0, -62 - bob); ctx.lineTo(3, -49 - bob); }); }
+  else if (hair === 'crest') { fill(p.armor, () => { ctx.moveTo(-10, -45 - bob); ctx.quadraticCurveTo(0, -56 - bob, 10, -45 - bob); ctx.lineTo(10, -42 - bob); ctx.lineTo(-10, -42 - bob); }); fill(p.accent, () => { ctx.moveTo(-2, -50 - bob); ctx.quadraticCurveTo(10, -72 - bob, 16, -52 - bob); ctx.lineTo(2, -48 - bob); }); }
+  else if (hair === 'sage') { fill('#e8e0d0', () => { ctx.moveTo(-9, -45 - bob); ctx.quadraticCurveTo(0, -54 - bob, 9, -45 - bob); ctx.lineTo(9, -40 - bob); ctx.lineTo(-9, -40 - bob); }, 1.5); fill('#e8e0d0', () => { ctx.ellipse(0, -52 - bob, 5, 4, 0, 0, TAU); }, 1.2); fill('#e8e0d0', () => { ctx.moveTo(-5, -36 - bob); ctx.quadraticCurveTo(0, -24 - bob, 5, -36 - bob); }, 1); }
+  else { fill(p.armor, () => { ctx.moveTo(-10, -45 - bob); ctx.quadraticCurveTo(0, -55 - bob, 10, -45 - bob); ctx.lineTo(10, -41 - bob); ctx.lineTo(-10, -41 - bob); }); ctx.fillStyle = p.accent; ctx.fillRect(-10, -45 - bob, 20, 2.2); }
+  // front arm (biceps) + weapon
   const atk = o.attack || 0; const armA = o.weapon === 'bow' ? -0.1 : (-0.6 + atk * 1.4);
-  ctx.save(); ctx.translate(11, -24 - bob); ctx.rotate(armA);
-  ctx.strokeStyle = ink; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(14, 8); ctx.stroke(); ctx.strokeStyle = hurt ? '#fff' : p.skin; ctx.lineWidth = 4.5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(14, 8); ctx.stroke();
-  ctx.translate(14, 8); drawWeapon(ctx, o.weapon, p, atk, o.charge || 0);
+  ctx.save(); ctx.translate(13, -26 - bob); ctx.rotate(armA);
+  limb(0, 0, 15, 9, 6.5, skin); muscle(6, 3, 4.5, 3.4, 0.5); ctx.strokeStyle = p.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(11, 5); ctx.lineTo(13, 10); ctx.stroke();
+  ctx.translate(15, 9); drawWeapon(ctx, o.weapon, p, atk, o.charge || 0);
   ctx.restore();
+  // wounds: cuts and bruises appear as HP drops
+  if (w > 0.15) { ctx.strokeStyle = '#8a0f0f'; ctx.lineWidth = 1.3; const cuts = [[-4, -22, -1, -16], [6, -14, 9, -9], [-16, -12, -14, -8], [8, 2, 11, 7], [-9, -40, -7, -37], [5, -8, 8, -3]]; const n = Math.min(cuts.length, Math.ceil(w * cuts.length)); for (let i = 0; i < n; i++) { const c = cuts[i]; ctx.beginPath(); ctx.moveTo(c[0], c[1] - bob); ctx.lineTo(c[2], c[3] - bob); ctx.stroke(); } if (w > 0.5) { ctx.fillStyle = 'rgba(90,20,60,0.45)'; ctx.beginPath(); ctx.ellipse(-8, -18 - bob, 4, 3, 0.4, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(140,10,10,0.5)'; ctx.beginPath(); ctx.ellipse(10, 4, 3, 2, 0, 0, TAU); ctx.fill(); } }
   ctx.restore();
 }
 export function drawWeapon(ctx, w, p, atk = 0, charge = 0) {

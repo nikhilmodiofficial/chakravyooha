@@ -16,9 +16,9 @@ export class Input {
     window.addEventListener('mouseup', e => { if (e.button === 0) this.keys.delete('mouse0'); if (e.button === 1) this.keys.delete('mouse1'); if (e.button === 2) this.keys.delete('mouse2'); });
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     // touch stick on canvas (left 45%)
-    const ts = e => { for (const t of e.changedTouches) { const r = this.canvas.getBoundingClientRect(); const x = t.clientX - r.left, y = t.clientY - r.top; if (x < r.width * 0.5 && this.touch.stickId === null) { this.touch.stickId = t.identifier; this.touch.stick = { ox: x, oy: y, x, y }; } } e.preventDefault(); };
+    this.touchAny = 0; const ts = e => { this.touchAny++; for (const t of e.changedTouches) { const r = this.canvas.getBoundingClientRect(); const x = t.clientX - r.left, y = t.clientY - r.top; if (x < r.width * 0.5 && this.touch.stickId === null) { this.touch.stickId = t.identifier; this.touch.stick = { ox: x, oy: y, x, y }; } } e.preventDefault(); };
     const tm = e => { for (const t of e.changedTouches) if (t.identifier === this.touch.stickId) { const r = this.canvas.getBoundingClientRect(); this.touch.stick.x = t.clientX - r.left; this.touch.stick.y = t.clientY - r.top; } e.preventDefault(); };
-    const te = e => { for (const t of e.changedTouches) if (t.identifier === this.touch.stickId) { this.touch.stickId = null; this.touch.stick = null; } };
+    const te = e => { this.touchAny = Math.max(0, this.touchAny - e.changedTouches.length); for (const t of e.changedTouches) if (t.identifier === this.touch.stickId) { this.touch.stickId = null; this.touch.stick = null; } };
     this.canvas.addEventListener('touchstart', ts, { passive: false }); this.canvas.addEventListener('touchmove', tm, { passive: false });
     this.canvas.addEventListener('touchend', te); this.canvas.addEventListener('touchcancel', te);
   }
@@ -28,6 +28,7 @@ export class Input {
     el.addEventListener('touchstart', down, { passive: false }); el.addEventListener('touchend', up); el.addEventListener('touchcancel', up);
     el.addEventListener('mousedown', down); el.addEventListener('mouseup', up); el.addEventListener('mouseleave', up);
   }
+  anyHeld() { return this.held(' ') || this.held('enter') || this.held('mouse0') || this.btn('skip') || this.touchAny > 0 || (this.gp && this.gp.buttons.some((b, i) => b.pressed && i < 4)); }
   _norm(k) { return k.length === 1 ? k.toLowerCase() : k.toLowerCase(); }
   held(k) { return this.keys.has(k); }
   btn(n) { return !!this.touch.buttons[n]; }

@@ -21,8 +21,8 @@ export class Hero {
   }
   takeDamage(d, world, src) {
     if (!this.alive || this.invuln > 0 || this.state === 'dodge') return false;
-    this.hp -= d; this.hurtT = 0.25; this.invuln = 0.35; world.audio.sfx('hurt'); world.shake(Math.min(12, d * 0.6)); world.hurtFlash = Math.min(1, 0.35 + d * 0.03); world.floatText(this.x, this.y - 56, '-' + Math.round(d), '#FF5A3B');
-    world.burst(this.x, this.y, '#FF5A3B', 10, 160);
+    this.streak = 0; this.hp -= d; this.hurtT = 0.25; this.invuln = 0.35; world.audio.sfx('hurt'); world.shake(Math.min(12, d * 0.6)); world.hurtFlash = Math.min(1, 0.35 + d * 0.03); world.floatText(this.x, this.y - 56, '-' + Math.round(d), '#FF5A3B');
+    world.blood(this.x, this.y, src ? src.x : this.x - Math.cos(this.facing) * 10, src ? src.y : this.y, 1);
     if (src) { const a = Math.atan2(this.y - src.y, this.x - src.x); this.vx += Math.cos(a) * 160; this.vy += Math.sin(a) * 160; }
     if (this.hp <= 0) { this.hp = 0; this.alive = false; this.state = 'dead'; world.onHeroDown(this); }
     return true;
@@ -31,6 +31,7 @@ export class Hero {
   update(dt, intent, world) {
     if (!this.alive) return;
     if (this.state === 'fallen') { this.vx = this.vy = 0; this.charging = false; return; }
+    if (this.state === 'pranam') { this.vx = this.vy = 0; this.charging = false; this.stateT -= dt; if (this.stateT <= 0) this.state = 'idle'; return; }
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     this.invuln = Math.max(0, this.invuln - dt); this.hurtT = Math.max(0, this.hurtT - dt); this.stateT -= dt; this.comboT -= dt;
     if (this.comboT <= 0) this.combo = 0;
@@ -82,7 +83,7 @@ export class Soldier {
   takeDamage(d, world, hit) {
     if (!this.alive) return;
     if (this.shield && hit && !hit.breakShield && hit.kind !== 'astra') { const a = Math.atan2(hit.y - this.y, hit.x - this.x); if (Math.abs(angDiff(this.facing, a)) < 1.1) { world.audio.sfx('clash'); world.burst(this.x + Math.cos(a) * 16, this.y + Math.sin(a) * 16, '#FFE8A3', 6, 120); return; } }
-    this.hp -= d; this.hurtT = 0.2; world.burst(this.x, this.y, '#C23B3B', 6, 120); world.audio.sfx('hit');
+    this.hp -= d; this.hurtT = 0.2; world.blood(this.x, this.y, hit ? hit.x : this.x, hit ? hit.y : this.y + 10, hit && hit.kind === 'gada' ? 1.6 : 1); world.audio.sfx('hit');
     if (hit && hit.knock) { const a = Math.atan2(this.y - hit.y, this.x - hit.x); this.vx += Math.cos(a) * hit.knock; this.vy += Math.sin(a) * hit.knock; }
     if (this.hp <= 0) { this.alive = false; world.onEnemyDead(this); }
   }
@@ -94,7 +95,7 @@ export class Soldier {
     else if (this.type === 'archer') {
       this.facing = a; const want = 300; const dir = d < want - 40 ? -1 : d > want + 40 ? 1 : 0; this.vx = lerp(this.vx, Math.cos(a) * dir * this.speed, 0.2); this.vy = lerp(this.vy, Math.sin(a) * dir * this.speed, 0.2);
       if (this.t <= 0) { this.state = 'tele'; this.tele = 0.6; this.t = rnd(2.2, 3.4); }
-      if (this.state === 'tele') { this.tele -= dt; this.vx *= 0.7; this.vy *= 0.7; if (this.tele <= 0) { this.state = 'approach'; world.addProjectile({ owner: this, team: 'kaurava', x: this.x, y: this.y, vx: Math.cos(a) * 420, vy: Math.sin(a) * 420, dmg: 7, life: 1.6, kind: 'arrow' }); world.audio.sfx('arrow'); } }
+      if (this.state === 'tele') { this.tele -= dt; this.vx *= 0.7; this.vy *= 0.7; if (this.tele <= 0) { this.state = 'approach'; world.addProjectile({ owner: this, team: 'kaurava', x: this.x, y: this.y, vx: Math.cos(a) * 420, vy: Math.sin(a) * 420, dmg: 5, life: 1.6, kind: 'arrow' }); world.audio.sfx('arrow'); } }
     } else {
       this.facing = a; this.walkT += dt * 8;
       if (this.state === 'approach') { const hasToken = (world.attacking || 0) < (world.attackTokens || 2); if (d > 52) { this.vx = lerp(this.vx, Math.cos(a) * this.speed, 0.2); this.vy = lerp(this.vy, Math.sin(a) * this.speed, 0.2); } else if (!hasToken && this.t <= 0) { const sa = a + Math.PI / 2 * (this.id % 2 ? 1 : -1); this.vx = lerp(this.vx, Math.cos(sa) * this.speed * 0.6, 0.2); this.vy = lerp(this.vy, Math.sin(sa) * this.speed * 0.6, 0.2); } else { this.vx *= 0.6; this.vy *= 0.6; if (this.t <= 0 && hasToken) { this.state = 'tele'; this.tele = this.shield ? 0.75 : 0.55; world.attacking = (world.attacking || 0) + 1; } } }
