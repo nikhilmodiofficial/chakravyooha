@@ -1,5 +1,6 @@
 // Entities: Hero (Abhimanyu / Satyaki), Soldier, Boss base, Projectile, Pickup, Particle.
 import { PLAYER, SATYAKI } from './config.js';
+import { ap, dp, impulse, integrateImpulse } from './physics.js';
 
 export const TAU = Math.PI * 2;
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -19,15 +20,15 @@ export class Hero {
     this.team = 'pandava'; this.alive = true; this.weaponsBroken = { bow: false, gada: false }; this.astra = null; this.astraUsed = false;
     this.stats = { hits: 0, dmg: 0, dodges: 0, shards: 0 }; this.chakra = false; this.arrows = kind === 'satyaki' ? 55 : 45; this.maxArrows = kind === 'satyaki' ? 55 : 45; this.weapon = 'sword'; this.blocking = false; this.blockT = 0; this.shieldBroken = false; this.shakti = 0; this.shaktiMax = 100; this.regenWait = 0; this.z = 0; this.noArrowT = 0; this.lastAttackDir = this.facing; this.walkT = 0;
   }
-  takeDamage(d, world, src) {
+  takeDamage(d, world, src, knock = 160) {
     if (!this.alive || this.invuln > 0 || this.state === 'dodge' || (this.state === 'jump' && this.z > 6)) return false;
     d *= 0.6;
     if (this.blocking && src) { const a = src.vx !== undefined && (src.vx || src.vy) ? Math.atan2(-src.vy, -src.vx) : Math.atan2(src.y - this.y, src.x - this.x); if (Math.abs(angDiff(this.facing, a)) < 1.15) { const perfect = this.blockT < 0.22; world.audio.sfx('clash'); world.burst(this.x + Math.cos(this.facing) * 22, this.y - 14 + Math.sin(this.facing) * 22, '#FFE8A3', perfect ? 18 : 8, perfect ? 240 : 140, true);
       if (perfect) { world.floatText(this.x, this.y - 60, world.lang === 'en' ? 'Perfect block!' : 'सटीक रोक!', '#FFE8A3'); const o = src.owner && src.owner.alive ? src.owner : (src.alive ? src : null); if (o && o.team === 'kaurava') { if (o.isBoss) o.stun = Math.max(o.stun || 0, 0.9); else o.stun = Math.max(o.stun || 0, 1.3); } if (this.shakti !== undefined) this.shakti = Math.min(this.shaktiMax, this.shakti + 6); this.invuln = 0.2; return false; }
-      d *= 0.15; this.vx -= Math.cos(this.facing) * 60; this.vy -= Math.sin(this.facing) * 60; if (d < 0.5) return false; } }
+      d *= 0.15; impulse(this, -Math.cos(this.facing), -Math.sin(this.facing), 60 + knock * 0.3); if (d < 0.5) return false; knock = 0; } }
     this.regenWait = 4; this.streak = 0; this.hp -= d; this.hurtT = 0.25; this.invuln = 0.35; world.audio.sfx('hurt'); world.shake(Math.min(12, d * 0.6)); world.hurtFlash = Math.min(1, 0.35 + d * 0.03); world.floatText(this.x, this.y - 56, '-' + Math.round(d), '#FF5A3B');
     world.blood(this.x, this.y, src ? src.x : this.x - Math.cos(this.facing) * 10, src ? src.y : this.y, 1);
-    if (src) { const a = Math.atan2(this.y - src.y, this.x - src.x); this.vx += Math.cos(a) * 160; this.vy += Math.sin(a) * 160; }
+    if (src && knock) { const dir = src.vx && src.vy !== undefined && !src.isBoss && src.kind ? [src.vx, src.vy] : [this.x - src.x, this.y - src.y]; impulse(this, dir[0], dir[1], knock); }
     if (this.hp <= 0) { this.hp = 0; this.alive = false; this.state = 'dead'; world.onHeroDown(this); }
     return true;
   }
@@ -64,11 +65,11 @@ export class Hero {
     const busy = this.state === 'gada' || this.state === 'sword' || this.state === 'stunned' || this.state === 'bound';
     let spd = c.speed * (this.blocking ? 0.45 : 1) * (this.charging ? 0.45 : 1) * (busy ? 0.25 : 1) * (this.slow > 0 ? 0.55 : 1);
     if (this.state === 'dodge') { this.vx = Math.cos(this.dodgeA) * c.dodge.speed; this.vy = Math.sin(this.dodgeA) * c.dodge.speed; if (this.stateT <= 0) this.state = 'idle'; }
-    else if (this.state === 'jump') { const T = 0.62, k = 1 - Math.max(0, this.stateT) / T; this.z = Math.sin(k * Math.PI) * 70; this.vx = lerp(this.vx, (intent.mx || this.jumpDx) * c.speed * 1.5, 0.12); this.vy = lerp(this.vy, (intent.my || this.jumpDy) * c.speed * 1.5, 0.12);
+    else if (this.state === 'jump') { const T = 0.62, k = 1 - Math.max(0, this.stateT) / T; this.z = 4 * 70 * k * (1 - k); // ballistic arc: rise slows, fall speeds up this.vx = lerp(this.vx, (intent.mx || this.jumpDx) * c.speed * 1.5, ap(0.12, dt)); this.vy = lerp(this.vy, (intent.my || this.jumpDy) * c.speed * 1.5, ap(0.12, dt));
       if (this.stateT <= 0) { this.state = 'idle'; this.z = 0; world.addHit({ owner: this, team: this.team, x: this.x, y: this.y, r: 70, dmg: 6, knock: 380, life: 0.1, kind: 'gada', ring: true, inner: 0 }); world.burst(this.x, this.y + 10, '#D9A441', 16, 200); world.audio.sfx('gada'); world.shake(5); } }
-    else if (this.state === 'stunned' || this.state === 'bound') { this.vx *= 0.8; this.vy *= 0.8; if (this.stateT <= 0) this.state = 'idle'; }
+    else if (this.state === 'stunned' || this.state === 'bound') { this.vx *= dp(0.8, dt); this.vy *= dp(0.8, dt); if (this.stateT <= 0) this.state = 'idle'; }
     else {
-      this.vx = lerp(this.vx, intent.mx * spd, 0.35); this.vy = lerp(this.vy, intent.my * spd, 0.35);
+      this.vx = lerp(this.vx, intent.mx * spd, ap(0.35, dt)); this.vy = lerp(this.vy, intent.my * spd, ap(0.35, dt));
       if ((intent.mx || intent.my) && !busy) { this.facing = Math.atan2(intent.my, intent.mx); this.walkT += dt * 9; }
       if (busy && this.stateT <= 0) this.state = 'idle';
       // actions
@@ -92,7 +93,7 @@ export class Hero {
     if (this._chakraSlam !== undefined) { this._chakraSlam -= dt; if (this._chakraSlam <= 0) { this._chakraSlam = undefined; world.addHit({ owner: this, team: this.team, x: this.x + Math.cos(this.facing) * 60, y: this.y + Math.sin(this.facing) * 60, r: 150, dmg: 55, knock: 1000, life: 0.15, kind: 'chakra', breakShield: true, parry: true }); world.audio.sfx('bhoomi'); world.shake(16); world.burst(this.x + Math.cos(this.facing) * 60, this.y + Math.sin(this.facing) * 60, '#F4C95D', 30, 320, true); world.floatText(this.x, this.y - 70, 'चक्र-प्रहार!', '#F4C95D'); } }
     if (this.state === 'gada' && this._gadaPending !== undefined) { this._gadaPending -= dt; if (this._gadaPending <= 0) { this._gadaPending = undefined; world.addHit({ owner: this, team: this.team, x: this.x + Math.cos(this.facing) * c.gada.range * 0.5, y: this.y + Math.sin(this.facing) * c.gada.range * 0.5, r: c.gada.range * 0.9, dmg: c.gada.dmg, knock: c.gada.knock, life: 0.12, kind: 'gada', breakShield: true, parry: true }); world.audio.sfx('gada'); world.shake(7); world.burst(this.x + Math.cos(this.facing) * 60, this.y + Math.sin(this.facing) * 60, '#E0B072', 14, 220); } }
     this.slow = Math.max(0, (this.slow || 0) - dt);
-    this.x += this.vx * dt; this.y += this.vy * dt; world.clampToArena(this);
+    this.x += this.vx * dt; this.y += this.vy * dt; integrateImpulse(this, dt); world.clampToArena(this);
   }
 }
 
@@ -107,27 +108,27 @@ export class Soldier {
     if (!this.alive) return;
     if (this.shield && hit && !hit.breakShield && hit.kind !== 'astra') { const a = Math.atan2(hit.y - this.y, hit.x - this.x); if (Math.abs(angDiff(this.facing, a)) < 1.1) { world.audio.sfx('clash'); world.burst(this.x + Math.cos(a) * 16, this.y + Math.sin(a) * 16, '#FFE8A3', 6, 120); return; } }
     this.hp -= d; this.hurtT = 0.2; world.blood(this.x, this.y, hit ? hit.x : this.x, hit ? hit.y : this.y + 10, hit && hit.kind === 'gada' ? 1.6 : 1); world.audio.sfx('hit');
-    if (hit && hit.knock) { const a = Math.atan2(this.y - hit.y, this.x - hit.x); this.vx += Math.cos(a) * hit.knock; this.vy += Math.sin(a) * hit.knock; }
+    const kn = hit ? (hit.knock || (hit.kind === 'arrow' ? (hit.charged ? 260 : 130) : 0)) : 0; // arrows carry momentum too
+    if (kn) { if (hit.kind === 'arrow' && hit.vx !== undefined) impulse(this, hit.vx, hit.vy, kn); else impulse(this, this.x - hit.x, this.y - hit.y, kn); }
     if (this.hp <= 0) { this.alive = false; world.onEnemyDead(this); }
   }
   update(dt, world) {
     if (!this.alive) return; this.hurtT = Math.max(0, this.hurtT - dt); this.stun = Math.max(0, this.stun - dt); this.t -= dt;
     const tgt = world.nearestHero(this.x, this.y); if (!tgt) return;
     const dx = tgt.x - this.x, dy = tgt.y - this.y, d = Math.hypot(dx, dy); const a = Math.atan2(dy, dx);
-    if (this.stun > 0) { this.vx *= 0.85; this.vy *= 0.85; }
+    if (this.stun > 0) { this.vx *= dp(0.85, dt); this.vy *= dp(0.85, dt); }
     else if (this.type === 'archer') {
-      this.facing = a; const want = 300; const dir = d < want - 40 ? -1 : d > want + 40 ? 1 : 0; this.vx = lerp(this.vx, Math.cos(a) * dir * this.speed, 0.2); this.vy = lerp(this.vy, Math.sin(a) * dir * this.speed, 0.2);
+      this.facing = a; const want = 300; const dir = d < want - 40 ? -1 : d > want + 40 ? 1 : 0; this.vx = lerp(this.vx, Math.cos(a) * dir * this.speed, ap(0.2, dt)); this.vy = lerp(this.vy, Math.sin(a) * dir * this.speed, ap(0.2, dt));
       if (this.t <= 0) { this.state = 'tele'; this.tele = 0.6; this.t = rnd(2.2, 3.4); }
-      if (this.state === 'tele') { this.tele -= dt; this.vx *= 0.7; this.vy *= 0.7; if (this.tele <= 0) { this.state = 'approach'; world.addProjectile({ owner: this, team: 'kaurava', x: this.x, y: this.y, vx: Math.cos(a) * 420, vy: Math.sin(a) * 420, dmg: 5, life: 1.6, kind: 'arrow' }); world.audio.sfx('arrow'); } }
+      if (this.state === 'tele') { this.tele -= dt; this.vx *= dp(0.7, dt); this.vy *= dp(0.7, dt); if (this.tele <= 0) { this.state = 'approach'; world.addProjectile({ owner: this, team: 'kaurava', x: this.x, y: this.y, vx: Math.cos(a) * 420, vy: Math.sin(a) * 420, dmg: 5, life: 1.6, kind: 'arrow' }); world.audio.sfx('arrow'); } }
     } else {
       this.facing = a; this.walkT += dt * 8;
-      if (this.state === 'approach') { const hasToken = (world.attacking || 0) < (world.attackTokens || 2); if (d > 52) { this.vx = lerp(this.vx, Math.cos(a) * this.speed, 0.2); this.vy = lerp(this.vy, Math.sin(a) * this.speed, 0.2); } else if (!hasToken && this.t <= 0) { const sa = a + Math.PI / 2 * (this.id % 2 ? 1 : -1); this.vx = lerp(this.vx, Math.cos(sa) * this.speed * 0.6, 0.2); this.vy = lerp(this.vy, Math.sin(sa) * this.speed * 0.6, 0.2); } else { this.vx *= 0.6; this.vy *= 0.6; if (this.t <= 0 && hasToken) { this.state = 'tele'; this.tele = this.shield ? 0.75 : 0.55; world.attacking = (world.attacking || 0) + 1; } } }
-      else if (this.state === 'tele') { this.tele -= dt; this.vx *= 0.7; this.vy *= 0.7; if (this.tele <= 0) { this.state = 'strike'; this.tele = 0.22; this.t = rnd(1.3, 2.2); world.addHit({ owner: this, team: 'kaurava', x: this.x + Math.cos(a) * 34, y: this.y + Math.sin(a) * 34, r: 34, dmg: this.shield ? 10 : 6, knock: 120, life: 0.1, kind: 'sword' }); world.audio.sfx('sword'); } }
-      else if (this.state === 'strike') { this.tele -= dt; this.vx *= 0.7; this.vy *= 0.7; if (this.tele <= 0) this.state = 'approach'; }
+      if (this.state === 'approach') { const hasToken = (world.attacking || 0) < (world.attackTokens || 2); if (d > 52) { this.vx = lerp(this.vx, Math.cos(a) * this.speed, ap(0.2, dt)); this.vy = lerp(this.vy, Math.sin(a) * this.speed, ap(0.2, dt)); } else if (!hasToken && this.t <= 0) { const sa = a + Math.PI / 2 * (this.id % 2 ? 1 : -1); this.vx = lerp(this.vx, Math.cos(sa) * this.speed * 0.6, ap(0.2, dt)); this.vy = lerp(this.vy, Math.sin(sa) * this.speed * 0.6, ap(0.2, dt)); } else { this.vx *= dp(0.6, dt); this.vy *= dp(0.6, dt); if (this.t <= 0 && hasToken) { this.state = 'tele'; this.tele = this.shield ? 0.75 : 0.55; world.attacking = (world.attacking || 0) + 1; } } }
+      else if (this.state === 'tele') { this.tele -= dt; this.vx *= dp(0.7, dt); this.vy *= dp(0.7, dt); if (this.tele <= 0) { this.state = 'strike'; this.tele = 0.22; this.t = rnd(1.3, 2.2); world.addHit({ owner: this, team: 'kaurava', x: this.x + Math.cos(a) * 34, y: this.y + Math.sin(a) * 34, r: 34, dmg: this.shield ? 10 : 6, knock: 120, life: 0.1, kind: 'sword' }); world.audio.sfx('sword'); } }
+      else if (this.state === 'strike') { this.tele -= dt; this.vx *= dp(0.7, dt); this.vy *= dp(0.7, dt); if (this.tele <= 0) this.state = 'approach'; }
     }
     // separation
-    for (const o of world.enemies) if (o !== this && o.alive) { const ox = this.x - o.x, oy = this.y - o.y, od = Math.hypot(ox, oy) || 1, min = this.r + o.r; if (od < min) { this.vx += ox / od * 40; this.vy += oy / od * 40; } }
-    this.x += this.vx * dt; this.y += this.vy * dt; this.vx *= 0.9; this.vy *= 0.9; world.clampToArena(this);
+    this.x += this.vx * dt; this.y += this.vy * dt; this.vx *= dp(0.9, dt); this.vy *= dp(0.9, dt); integrateImpulse(this, dt); world.clampToArena(this);
   }
 }
 
@@ -146,5 +147,6 @@ export class Pickup {
 
 export class Particle {
   constructor(x, y, vx, vy, color, life, size, grav = 0, add = false) { this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.color = color; this.life = life; this.maxLife = life; this.size = size; this.grav = grav; this.add = add; }
-  update(dt) { this.life -= dt; this.x += this.vx * dt; this.y += this.vy * dt; this.vy += this.grav * dt; this.vx *= 0.97; this.vy *= 0.97; }
+  update(dt) { this.life -= dt; if (this.landed) return; this.x += this.vx * dt; this.y += this.vy * dt; this.vy += this.grav * dt; const f = dp(0.97, dt); this.vx *= f; this.vy *= f;
+    if (this.ground !== undefined && this.vy > 0 && this.y >= this.ground) { this.y = this.ground; this.vx = this.vy = 0; this.landed = true; this.life = Math.min(this.life, 0.6); } }
 }

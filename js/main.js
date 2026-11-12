@@ -10,18 +10,18 @@ import { UI } from './ui.js';
 import { Cinematic, wait } from './cinematic.js';
 import { Ring7 } from './ring7.js';
 import { Save } from './save.js';
-import { Host, Client, joinLink, snapshot, applySnapshot, makeProxyWorld, cleanName } from './coop.js';
+import { Host, Client, joinLink, snapshot, applySnapshot, makeProxyWorld, cleanName, ONE_SHOT } from './coop.js';
 import { renderCard, shareCard, downloadCard, whatsappLink, fmtTime } from './share.js';
 import { Home, portraitCanvas } from './home.js';
 import { drawWeapon } from './art.js';
-import { T, lang, setLang, tr } from './i18n.js';
+import { T, lang, setLang, tr, charInfo } from './i18n.js';
 // canvas text written inline in Hindi (names, gate labels, float text, share card) follows the chosen language
 { const P = CanvasRenderingContext2D.prototype; for (const f of ['fillText', 'strokeText', 'measureText']) { const o = P[f]; P[f] = function (t, ...a) { return o.call(this, tr(t), ...a); }; }
   // gradients with a negative or non-finite radius throw mid-frame; clamp them instead
   const rg = P.createRadialGradient; P.createRadialGradient = function (x0, y0, r0, x1, y1, r1) { const ok = v => (Number.isFinite(v) ? v : 0); return rg.call(this, ok(x0), ok(y0), Math.max(0, ok(r0)), ok(x1), ok(y1), Math.max(0, ok(r1))); };
   const ar = P.arc; P.arc = function (x, y, r, ...a) { return ar.call(this, x, y, Math.max(0, r || 0), ...a); }; }
 import { CHAR_BIOS } from './config.js';
-window.__T = T; window.__bios = CHAR_BIOS; window.__portrait = (k, w, h) => portraitCanvas(k, w, h);
+window.__T = T; window.__bios = CHAR_BIOS; window.__charTitle = k => { const i = charInfo(k, CHAR_BIOS); return i && i.title; }; window.__portrait = (k, w, h) => portraitCanvas(k, w, h);
 
 class Game {
   constructor() {
@@ -60,7 +60,7 @@ class Game {
       phase2: b => { if (this.abhi.astra) { this.ui.toast(T('toastAstra') + ASTRAS[this.abhi.astra].name + ' (E)', 3000); this.ui.setObjective(b.def.name + T('objAstra')); } else this.ui.setObjective(b.def.name + T('objKeep')); },
       heroDown: h => { if (h === this.abhi) this.onDeath(); },
       bossDefeated: b => { this.sayRaw(b.def.defeat, '#F1E7D0', 'boss_' + b.key + '_defeat'); if (this.world.nabhi && this.world.nabhi.hp > 0) this.ui.setObjective('सात्यकि: व्यूह-नाभि गिराओ!'); else this.ui.setObjective(T('objGate')); this.ui.toast(T('toastGate'), 3000); },
-      ringDone: () => this.onRingDone(),
+      ringDone: () => { try { this.onRingDone(); } catch (e) { console.error('ringDone', e); this.ui.hideMenu(); if (this.ringIdx < RINGS.length - 1) this.startRing(this.ringIdx + 1); else this.title(); } },
       vipatti: () => { this.ui.toast(T('toastVip'), 2200); this.hype('vipatti', true); },
       nabhi: () => { this.ui.toast(T('toastNabhi'), 2500); },
       hype: (key, strong) => this.hype(key, strong)
@@ -82,7 +82,7 @@ class Game {
     this.sayRaw(after, '#F1E7D0', 'ring' + (this.ringIdx + 1) + '_after');
     const custom = document.createElement('div'); custom.className = 'astra-card'; if (A) { custom.style.setProperty('--c', A.color); const n = document.createElement('div'); n.className = 'an'; n.textContent = A.name; const d = document.createElement('div'); d.className = 'ad'; d.textContent = A.desc + ' — अगले चक्र में, शत्रु ≤ 50% पर।'; custom.append(n, d); }
     const wrap = document.createElement('div'); if (A) wrap.appendChild(custom); wrap.appendChild(this.codexPage(this.ringIdx));
-    this.ui.showMenu({ kicker: ring.name + ' · ' + T('ringBroken') + ' · ' + fmtTime(this.elapsed), title: A ? T('astraGot') : T('ringBroken'), custom: wrap, body: [after.replace(/^(संजय|Sanjaya):\s*/, '')], buttons: [{ label: nextRing.name, sub: nextRing.sub + ' — ' + BOSSES[nextRing.boss].name, cls: 'primary', onClick: () => { this.abhi.astra = nextRing.useAstra; this.startRing(this.ringIdx + 1); } }, { label: T('rest'), sub: T('restSub'), onClick: () => this.title() }] });
+    this.ui.showMenu({ kicker: ring.name + ' · ' + T('ringBroken') + ' · ' + fmtTime(this.elapsed), title: A ? T('astraGot') : T('ringBroken'), custom: wrap, body: [after.replace(/^(संजय|Sanjaya):\s*/, '')], buttons: [{ label: nextRing.name, sub: nextRing.sub + (BOSSES[nextRing.boss] ? ' — ' + BOSSES[nextRing.boss].name : ''), cls: 'primary', onClick: () => { this.abhi.astra = nextRing.useAstra; this.startRing(this.ringIdx + 1); } }, { label: T('rest'), sub: T('restSub'), onClick: () => this.title() }] });
     if (this.coop.host) this.coop.host.send({ t: 'ev', k: 'toast', text: ring.name + ' टूटा। अगला: ' + nextRing.name });
   }
   hype(key, strong) { const H = HYPE[key]; if (!H) return; const now = performance.now(); if (!strong && now - (this._hypeT || 0) < 9000) return; this._hypeT = now; this.ui.hypeWord(H.word, strong); this.audio.sfx(strong ? 'unlock' : 'ui');
@@ -176,7 +176,7 @@ class Game {
     const empty = { mx: 0, my: 0 }; const still = { mx: 0, my: 0 };
     if (this.ring7 && this.satyaki && this.world.heroes.includes(this.satyaki)) {
       const satTurn = this.ring7.controlled() === 'satyaki';
-      if (this.coop.mode === 'host') { const ri = this.coop.host.takeIntent() || empty; return [satTurn ? Object.assign({}, still, { astra: local.astra, act: local.astra }) : Object.assign({}, local, { act: local.astra }), ri]; }
+      if (this.coop.mode === 'host') { const ri = this.coop.host.takeIntent() || empty; if (ri.attack && this.satyaki.state === 'bound') this.ring7.struggle(); return [satTurn ? Object.assign({}, still, { astra: local.astra, act: local.astra }) : Object.assign({}, local, { act: local.astra }), ri]; }
       return satTurn ? [Object.assign({}, still, { astra: local.astra, act: local.astra }), local] : [Object.assign({}, local, { act: local.astra }), still];
     }
     if (this.coop.mode === 'host' && this.world.heroes.length > 1) return [local, this.coop.host.takeIntent() || empty];
@@ -186,10 +186,14 @@ class Game {
     const c = this.coop.client; if (!c) return; const p = this.proxy; p.tick(dt);
     if (c.snap) { applySnapshot(p, c.snap, RINGS, BOSSES, this.audio); c.snap = null; }
     const me = p.heroes[1] || p.heroes[0]; if (me && intent.mouseFresh) { const w = this.r.screenToWorld(this.input.mouse.x * this.r.w, this.input.mouse.y * this.r.h); intent.aimAngle = Math.atan2(w.y - me.y, w.x - me.x); }
-    intent.act = intent.astra; this.netT += dt; if (this.netT > 0.033) { this.netT = 0; c.sendIntent(intent); }
+    intent.act = intent.astra;
+    // latch taps between network sends so no press is lost (sends are ~30/s, taps can land on any frame)
+    const L = this._latch || (this._latch = {}); for (const k of ONE_SHOT) if (intent[k]) L[k] = true; if (intent.weaponSel) L.weaponSel = intent.weaponSel;
+    this.netT += dt; if (this.netT > 0.033) { this.netT = 0; c.sendIntent(Object.assign({}, intent, L)); this._latch = {}; }
     if (p.extra && p.extra.obj !== undefined && p.extra.obj !== this._lastObj) { this._lastObj = p.extra.obj; this.ui.setObjective(p.extra.obj); }
     this.r.draw(p, this.t, me); if (me) this.ui.updateHud(p, me, 0, p.heroes[0] && p.heroes[0] !== me ? p.heroes[0] : null);
     if (p.extra && p.extra.stage === 'fallen') this.ui.setObjective('अभिमन्यु गिरा है — मित्र तुम्हें बुला रहा है…');
+    else if (p.extra && ['W0', 'W1', 'K', 'W1b', 'W2'].includes(p.extra.stage)) this.ui.setObjective('तुम पाश में बँधे हो — वार बार-बार दबाओ, बंधन ढीला करो');
   }
   drawIdle() { const ctx = this.r.ctx, W = this.r.w, H = this.r.h; const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1B1F3B'); g.addColorStop(0.6, '#7A1E1E'); g.addColorStop(1, '#D9A441'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.save(); ctx.translate(W / 2, H * 0.6); for (let i = 0; i < 7; i++) { const rr = Math.min(W, H) * (0.08 + i * 0.07); ctx.save(); ctx.rotate(this.t * 0.08 * (i % 2 ? -1 : 1)); ctx.strokeStyle = `rgba(244,201,93,${0.45 - i * 0.05})`; ctx.lineWidth = 2; ctx.setLineDash([18, 12]); ctx.beginPath(); ctx.ellipse(0, 0, rr, rr * 0.5, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); } ctx.restore(); const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.7)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H); }
 }

@@ -126,6 +126,8 @@ export function setLang(l) {
   EPILOGUE.forEach((sc, si) => { const e = EN.epi[si]; sc.lines.forEach((ln, li) => set(ln, 'text', e[1][li])); });
   for (const k in EN.r7) RING7[k].forEach((ln, i) => set(ln, 'text', EN.r7[k][i]));
   for (const k in EN.hype) set(HYPE[k], 'word', EN.hype[k]);
+  const HL = { streak: ['See that? That is my brother\'s blood!', 'O King, that is no boy — a Mahayoddha is fighting.'], cleanWave: ['Not a single blow reached him.'], phase2: ['The maharathi staggers. Now is the moment for the astra.', '(to himself) He is... he is faster than Arjuna.'], astra: ['The sky trembled. For the first time the Kaurava army looked back.'], bossDown: ['Hear the Paundra, son! Forward!', 'One more ring — and one more line of history erased.'], vipatti: ['(gasping) Not yet... not yet.'], chakra: ['As if Vasudeva himself had raised the Sudarshana!'] };
+  for (const k in HL) (HYPE[k].lines || []).forEach((ln, i) => HL[k][i] && set(ln, 'text', HL[k][i]));
   CODEX.forEach((c, i) => { const e = EN.codex[i]; set(c, 'title', e[0]); set(c, 'vyasa', e[1]); set(c, 'here', e[2]); set(c, 'pride', e[3]); });
   CHAR_INFO.forEach(c => { const e = EN.charInfo[c.key]; if (e) { set(c, 'title', e[0]); set(c, 'bio', e[1]); set(c, 'role', e[2]); } });
   STORY.forEach((p, i) => { set(p, 'h', EN.story[i][0]); set(p, 't', EN.story[i][1]); });
@@ -305,6 +307,11 @@ const RT = {
   'समय: ': 'Time: ',
   ' बाण': ' arrows',
   'सात्यकि: ': 'Satyaki: ',
+  'तुम पाश में बँधे हो — वार बार-बार दबाओ, बंधन ढीला करो': 'You are bound in the noose — tap Strike again and again to loosen it',
+  'सात्यकि का बल!': 'Satyaki strains!',
+  'पाश ढीला!': 'Noose loosens!',
+  ' शेष)': ' left)',
+  'सात्यकि: वार': 'Satyaki: Strike',
 };
 const RT_KEYS = Object.keys(RT).sort((a, b) => b.length - a.length);
 const DEV = /[ऀ-ॿ]/;

@@ -99,6 +99,16 @@ export class Ring7 {
     this.speak(RING7.satyakiEntry[0]); setTimeout(() => this.speak(RING7.satyakiEntry[1]), 3500);
     this.resetA();
   }
+  // co-op: a bound Satyaki is not a spectator — his friend taps Strike to strain against the noose.
+  // Every few taps one holder's grip loosens (counts as one wheel-hit), so a single slam from Abhimanyu finishes him.
+  struggle() {
+    if (!['W0', 'W1', 'K', 'W1b', 'W2'].includes(this.stage) || !this.pashHolders) return;
+    this.strain = (this.strain || 0) + 1; const s = this.satyaki; this.w.burst(s.x + rnd(-14, 14), s.y - 30, '#B088FF', 3, 90, true);
+    if (this.strain % 7) return;
+    const m = this.pashHolders.filter(h => !h.retreat && (h.pushed || 0) < 1).sort((a, b) => Math.hypot(a.x - s.x, a.y - s.y) - Math.hypot(b.x - s.x, b.y - s.y))[0];
+    if (!m) return; m.pushed = 1; m.stun = 1.2; this.w.audio.sfx('clash'); this.w.shake(4);
+    this.w.floatText(m.x, m.y - 50, 'पाश ढीला!', '#B088FF'); this.w.floatText(s.x, s.y - 70, 'सात्यकि का बल!', '#F4C95D');
+  }
   resetA() { this.stage = 'A'; this.timer = 30; this.anchors = [0, 1, 2].map(i => { const a = i / 3 * TAU + 0.5; return { x: this.boss.x + Math.cos(a) * 95, y: this.boss.y + Math.sin(a) * 95, lit: false }; }); this.boss.x = this.w.arena.cx; this.boss.y = this.w.arena.cy - 60; this.boss.stun = 0; this.boss.bound = 0; this.boss.invuln = true; this.boss.move = null; this.abhi.x = this.w.arena.cx; this.abhi.y = this.w.arena.cy + 140; this.satyaki.hp = this.satyaki.maxHp; this.satyaki.alive = true; this.satyaki.state = 'idle'; this.w.extraDraw = this.anchorDraw(); }
   anchorDraw() { return [{ y: -1e9, custom: (ctx, t) => { for (const a of this.anchors) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a.lit ? 0.9 : 0.5 + 0.4 * Math.sin(t * 6); ctx.strokeStyle = a.lit ? '#7FE3FF' : '#FFFFFF'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(a.x, a.y, 24 + Math.sin(t * 4) * 3, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(a.x, a.y, 6, 0, TAU); ctx.fillStyle = ctx.strokeStyle; ctx.fill(); ctx.restore(); } if (this.anchors.some(a => a.lit)) { ctx.save(); ctx.strokeStyle = '#7FE3FF'; ctx.lineWidth = 2; ctx.globalAlpha = 0.8; const lit = this.anchors.filter(a => a.lit); for (let i = 0; i < lit.length; i++) for (let j = i + 1; j < lit.length; j++) { ctx.beginPath(); ctx.moveTo(lit[i].x, lit[i].y); for (let k = 1; k <= 8; k++) { const u = k / 8; ctx.lineTo(lerp(lit[i].x, lit[j].x, u) + rnd(-6, 6), lerp(lit[i].y, lit[j].y, u) + rnd(-6, 6)); } ctx.stroke(); } ctx.restore(); } for (const n of this.nodes) { if (n.hit) continue; const first = this.nodes.find(x => !x.hit) === n; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = first ? 0.9 : 0.35; ctx.fillStyle = first ? '#B4FFD0' : '#5FD88A'; ctx.beginPath(); ctx.arc(n.x, n.y, first ? 14 + Math.sin(t * 8) * 3 : 9, 0, TAU); ctx.fill(); ctx.font = '14px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(n.i + 1, n.x, n.y + 5); ctx.restore(); } } }]; }
   toB() { this.stage = 'B'; this.timer = 22; this.boss.bound = 99; this.boss.invuln = true; this.w.audio.sfx('bind'); this.w.flash = 0.6; this.speak(RING7.dronaRetreat[0]); setTimeout(() => this.speak(RING7.healLines[0]), 5000);

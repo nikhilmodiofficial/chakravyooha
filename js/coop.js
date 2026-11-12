@@ -6,7 +6,11 @@ export function makeRoom() { const a = new Uint8Array(10); crypto.getRandomValue
 export function joinLink(room) { const u = new URL(location.href); u.hash = 'join=' + room; return u.toString(); }
 export function cleanName(n) { return String(n || '').replace(/[^\p{L}\p{N} _.-]/gu, '').slice(0, 18) || 'मित्र'; }
 const num = (v, lo, hi) => typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : 0;
-export function cleanIntent(i) { if (!i || typeof i !== 'object') return null; return { mx: num(i.mx, -1, 1), my: num(i.my, -1, 1), sword: !!i.sword, bowHeld: !!i.bowHeld, bowPressed: !!i.bowPressed, gada: !!i.gada, dodge: !!i.dodge, astra: !!i.astra, aimAngle: typeof i.aimAngle === 'number' && isFinite(i.aimAngle) ? i.aimAngle : undefined, act: !!i.act, drag: Array.isArray(i.drag) ? { x: num(i.drag[0], -1e4, 1e4), y: num(i.drag[1], -1e4, 1e4), down: !!i.drag[2] } : null }; }
+// one-shot presses are latched until the host consumes them; held buttons are plain state
+export const ONE_SHOT = ['attack', 'switchW', 'jump', 'dodge', 'astra', 'act', 'sword', 'gada', 'bowPressed'];
+export const HELD = ['attackHeld', 'block', 'bowHeld'];
+const WEAPONS = ['sword', 'bow', 'gada'];
+export function cleanIntent(i) { if (!i || typeof i !== 'object') return null; const o = { mx: num(i.mx, -1, 1), my: num(i.my, -1, 1), aimAngle: typeof i.aimAngle === 'number' && isFinite(i.aimAngle) ? i.aimAngle : undefined, weaponSel: WEAPONS.includes(i.weaponSel) ? i.weaponSel : undefined, drag: Array.isArray(i.drag) ? { x: num(i.drag[0], -1e4, 1e4), y: num(i.drag[1], -1e4, 1e4), down: !!i.drag[2] } : null }; for (const k of ONE_SHOT) o[k] = !!i[k]; for (const k of HELD) o[k] = !!i[k]; return o; }
 
 async function loadPeer() {
   if (window.Peer) return window.Peer;
@@ -26,13 +30,13 @@ export class Host {
     return this.room;
   }
   _recv(d) {
-    const now = performance.now(); if (now - this._msgWin > 1000) { this._msgWin = now; this._msgCount = 0; } if (++this._msgCount > 90) return; // rate limit
+    const now = performance.now(); if (now - this._msgWin > 1000) { this._msgWin = now; this._msgCount = 0; } if (++this._msgCount > 150) return; // rate limit
     if (!d || typeof d !== 'object') return;
     if (d.t === 'hello') { this.friendName = cleanName(d.name); this.on('hello', this.friendName); }
-    else if (d.t === 'in') { const i = cleanIntent(d.i); if (i) { this.intent = i; this.lastIn = now; } }
+    else if (d.t === 'in') { const i = cleanIntent(d.i); if (i) { const prev = this.intent; if (prev) { for (const k of ONE_SHOT) i[k] = i[k] || prev[k]; if (!i.weaponSel) i.weaponSel = prev.weaponSel; } this.intent = i; this.lastIn = now; } }
   }
   send(msg) { if (this.conn && this.conn.open) { try { this.conn.send(msg); } catch (e) { } } }
-  takeIntent() { const i = this.intent; if (!i) return null; const out = Object.assign({}, i); this.intent = Object.assign({}, i, { sword: false, bowPressed: false, gada: false, dodge: false, astra: false, act: false }); return out; }
+  takeIntent() { const i = this.intent; if (!i) return null; const out = Object.assign({}, i); const rest = Object.assign({}, i, { weaponSel: undefined }); for (const k of ONE_SHOT) rest[k] = false; this.intent = rest; return out; }
   close() { try { this.conn && this.conn.close(); this.peer && this.peer.destroy(); } catch (e) { } }
 }
 
@@ -47,7 +51,7 @@ export class Client {
     this.conn.on('data', d => { if (!d || typeof d !== 'object') return; if (d.t === 's') this.snap = d; else if (d.t === 'ev') this.on('ev', d); });
     this.conn.on('close', () => { this.open = false; this.on('closed'); });
   }
-  sendIntent(i) { if (this.conn && this.conn.open) { try { this.conn.send({ t: 'in', i: { mx: i.mx, my: i.my, sword: i.sword, bowHeld: i.bowHeld, bowPressed: i.bowPressed, gada: i.gada, dodge: i.dodge, astra: i.astra, aimAngle: i.aimAngle, act: i.act, drag: i.drag ? [i.drag.x, i.drag.y, i.drag.down] : null } }); } catch (e) { } } }
+  sendIntent(i) { if (this.conn && this.conn.open) { try { const o = { mx: i.mx, my: i.my, aimAngle: i.aimAngle, weaponSel: i.weaponSel, drag: i.drag ? [i.drag.x, i.drag.y, i.drag.down] : null }; for (const k of ONE_SHOT) o[k] = !!i[k]; for (const k of HELD) o[k] = !!i[k]; this.conn.send({ t: 'in', i: o }); } catch (e) { } } }
   close() { try { this.conn && this.conn.close(); this.peer && this.peer.destroy(); } catch (e) { } }
 }
 
