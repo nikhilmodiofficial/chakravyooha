@@ -26,6 +26,7 @@ export class Renderer {
     const b = world.boss && world.boss.alive ? world.boss : null;
     if (f && b) { tx = f.x * 0.6 + b.x * 0.4; ty = f.y * 0.6 + b.y * 0.4; const dx = Math.abs(f.x - b.x) + 300, dy = Math.abs(f.y - b.y) + 380; baseZoom = Math.min(baseZoom, W / dx, H / dy); }
     ty -= (b ? 150 : 90) / Math.max(0.5, this.cam.zoom); // look-ahead toward the gate; room for boss bar + banner at the top
+    if (H > W * 1.2) ty += H * 0.1 / Math.max(0.5, this.cam.zoom); // portrait phones: keep the hero above the thumbs
     this.cam.zoom = lerp(this.cam.zoom, clamp(baseZoom, 0.55, 1.9), 0.06);
     const hx = W / 2 / this.cam.zoom, hy = H / 2 / this.cam.zoom;
     const bb = A.bbox; const cxMin = bb.minX + hx, cxMax = bb.maxX - hx, cyMin = bb.minY + hy, cyMax = bb.maxY - hy;
@@ -122,7 +123,7 @@ export class Renderer {
   // ---- characters
   drawShadow(ctx, x, y, r) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(x, y + r * 0.9, r * 1.1, r * 0.45, 0, 0, TAU); ctx.fill(); }
   drawHuman(ctx, o, t) {
-    const { x, y, r } = o; const s = r / 20 * 1.15; this.drawShadow(ctx, x, y, r);
+    const { x, y, r } = o; const s = r / 20 * 1.15; if (!o.clone) this.drawShadow(ctx, x, y, r); /* maya clones cast no shadow */
     if (o.clone) { ctx.save(); ctx.globalAlpha = 0.7 + 0.25 * Math.sin(t * 20); }
     const pand = o.team === 'pandava';
     const L = o.look ? LOOK[o.look] : null;

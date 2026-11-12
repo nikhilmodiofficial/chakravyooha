@@ -1,3 +1,5 @@
+import { RULES } from './rules.js';
+export { RULES };
 // Chakravyooh — central data: palette, rings, bosses, astras, dialogues.
 // Everything that a designer would tune lives here.
 
@@ -35,23 +37,9 @@ export const LOOK = {
   shield:     { armor: '#5C4A2E', accent: '#D9A441', cloth: '#3a2a1a', cape: null, mukut: 'band', rim: '#D9A441', skin: '#b87a52' }
 };
 
-export const PLAYER = {
-  maxHp: 150, speed: 255, radius: 20,
-  sword: { dmg: 9, arc: 1.3, range: 70, cd: 0.22, comboWindow: 0.55, comboDmg: [9, 10, 16] },
-  bow:   { dmg: 12, chargedDmg: 26, speed: 760, cd: 0.38, chargeTime: 0.7 },
-  gada:  { dmg: 30, arc: 1.7, range: 90, cd: 0.9, windup: 0.32, knock: 420 },
-  dodge: { dur: 0.38, speed: 620, cd: 0.75 },
-  shardHeal: 12
-};
+export const PLAYER = RULES.player;
 
-export const SATYAKI = {
-  maxHp: 180, speed: 265, radius: 21,
-  sword: { dmg: 8, arc: 1.4, range: 72, cd: 0.17, comboWindow: 0.5, comboDmg: [8, 8, 9, 15] },
-  bow:   { dmg: 14, chargedDmg: 30, speed: 800, cd: 0.34, chargeTime: 0.6 },
-  gada:  { dmg: 40, arc: 1.9, range: 100, cd: 1.0, windup: 0.36, knock: 520 },
-  dodge: { dur: 0.36, speed: 650, cd: 0.7 },
-  shardHeal: 14
-};
+export const SATYAKI = RULES.satyaki;
 
 export const ASTRAS = {
   vayu:   { name: 'वायु अस्त्र',  en: 'Vayu Astra',   color: '#CFF4FF', glow: '#7FE3FF', dmgPct: 0.25, stun: 2.2, desc: 'प्रचंड चक्रवात — शत्रु हवा में उछलते हैं।' },
@@ -64,13 +52,13 @@ export const ASTRAS = {
 
 // Ring definitions. decay = HP/sec passive drain. minutes = target duration (tuning only).
 export const RINGS = [
-  { id: 1, name: 'प्रथम चक्र', sub: 'बाह्य परिधि', boss: 'dushasana', useAstra: null,     earnAstra: 'vayu',   decay: 0.18, waves: [6, 8],  bpm: 84,  sky: ['#E9B35A', '#B5472D', '#2B1E2F'], ground: '#8C5A32', light: 0.0, minutes: 3 },
-  { id: 2, name: 'द्वितीय चक्र', sub: 'गदा-द्वार', boss: 'shalya',    useAstra: 'vayu',   earnAstra: 'agni',   decay: 0.25, waves: [7, 9],  bpm: 90,  sky: ['#D99A48', '#9E3B2A', '#261B2F'], ground: '#80522F', light: 0.1, minutes: 4 },
-  { id: 3, name: 'तृतीय चक्र', sub: 'बाण-भूलभुलैया', boss: 'lakshmana', useAstra: 'agni',   earnAstra: 'varun',  decay: 0.32, waves: [6, 9],  bpm: 96,  sky: ['#C98540', '#7E3028', '#211A30'], ground: '#73492D', light: 0.2, minutes: 4 },
-  { id: 4, name: 'चतुर्थ चक्र', sub: 'सूर्यपुत्र का द्वार', boss: 'karna', useAstra: 'varun',  earnAstra: 'naag',   decay: 0.42,  waves: [7, 9],  bpm: 104, sky: ['#B06B3A', '#5E2630', '#1B1A33'], ground: '#64412C', light: 0.35, minutes: 5 },
-  { id: 5, name: 'पंचम चक्र', sub: 'रथ-आँधी', boss: 'brihadbala', useAstra: 'naag',  earnAstra: 'bhoomi', decay: 0.52, waves: [8, 10], bpm: 112, sky: ['#8E5438', '#442036', '#171A36'], ground: '#563A2B', light: 0.5, minutes: 5 },
-  { id: 6, name: 'षष्ठ चक्र', sub: 'माया-द्वार', boss: 'kripa',    useAstra: 'bhoomi', earnAstra: 'him',    decay: 0.65,  waves: [8, 10], bpm: 120, sky: ['#5E3A44', '#2A1C3F', '#121636'], ground: '#48322C', light: 0.7, minutes: 6 },
-  { id: 7, name: 'सप्तम चक्र', sub: 'व्यूह-नाभि', boss: 'siege',    useAstra: 'him',    earnAstra: null,     decay: 0.0,  waves: [0, 0],  bpm: 132, sky: ['#3A2A4C', '#1B1F3B', '#0B0C14'], ground: '#3B2C2C', light: 0.9, minutes: 8 }
+  { id: 1, name: 'प्रथम चक्र', sub: 'बाह्य परिधि', boss: 'dushasana', useAstra: null,     earnAstra: 'vayu',   decay: 0.18, waves: [6, 8],  bpm: 84,  sky: ['#F2C46B', '#D9793A', '#3A2430'], ground: '#B88A52', light: 0.0, minutes: 3 },
+  { id: 2, name: 'द्वितीय चक्र', sub: 'गदा-द्वार', boss: 'shalya',    useAstra: 'vayu',   earnAstra: 'agni',   decay: 0.25, waves: [7, 9],  bpm: 90,  sky: ['#E7A15A', '#B4452C', '#2E1B2B'], ground: '#9C4F33', light: 0.1, minutes: 4 },
+  { id: 3, name: 'तृतीय चक्र', sub: 'बाण-भूलभुलैया', boss: 'lakshmana', useAstra: 'agni',   earnAstra: 'varun',  decay: 0.32, waves: [6, 9],  bpm: 96,  sky: ['#C9B49A', '#7C6B63', '#2A2530'], ground: '#7A6A5A', light: 0.2, minutes: 4 },
+  { id: 4, name: 'चतुर्थ चक्र', sub: 'सूर्यपुत्र का द्वार', boss: 'karna', useAstra: 'varun',  earnAstra: 'naag',   decay: 0.42,  waves: [7, 9],  bpm: 104, sky: ['#FFE29A', '#E0A030', '#5A3418'], ground: '#C59A45', light: 0.35, minutes: 5 },
+  { id: 5, name: 'पंचम चक्र', sub: 'रथ-आँधी', boss: 'brihadbala', useAstra: 'naag',  earnAstra: 'bhoomi', decay: 0.52, waves: [8, 10], bpm: 112, sky: ['#C7B07A', '#6F7A45', '#25301F'], ground: '#6B6A3A', light: 0.5, minutes: 5 },
+  { id: 6, name: 'षष्ठ चक्र', sub: 'माया-द्वार', boss: 'kripa',    useAstra: 'bhoomi', earnAstra: 'him',    decay: 0.65,  waves: [8, 10], bpm: 120, sky: ['#9A7BB0', '#4B3266', '#1A1430'], ground: '#584567', light: 0.7, minutes: 6 },
+  { id: 7, name: 'सप्तम चक्र', sub: 'व्यूह-नाभि', boss: 'siege',    useAstra: 'him',    earnAstra: null,     decay: 0.0,  waves: [0, 0],  bpm: 132, sky: ['#C2412F', '#5A1622', '#120A14'], ground: '#4A2224', light: 0.9, minutes: 8 }
 ];
 
 export const BOSSES = {

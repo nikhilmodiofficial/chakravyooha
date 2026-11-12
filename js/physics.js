@@ -1,3 +1,5 @@
+import { RULES } from './rules.js';
+const PH = RULES.physics;
 // Shared physics: frame-rate independent damping, mass-based impulses, body separation.
 // All tuning numbers were authored at 60 fps; these helpers keep the same feel at 30, 90 or 120 fps.
 
@@ -9,9 +11,9 @@ export const dp = (f, dt) => Math.pow(f, dt * 60);
 // mass: a soldier is lighter than Abhimanyu; maharathis scale with body size; heavy fighters (Brihadbala) more
 export function massOf(e) {
   if (e._mass) return e._mass;
-  if (e.isBoss) return (e._mass = Math.pow((e.r || 22) / 18, 2) * (e.heavy ? 2.2 : 1.5));
-  if (e.kind === 'abhimanyu' || e.kind === 'satyaki') return (e._mass = 1);
-  return (e._mass = 0.75);
+  if (e.isBoss) return (e._mass = Math.pow((e.r || 22) / 18, 2) * (e.heavy ? PH.mass.bossHeavy : PH.mass.bossBase));
+  if (e.kind === 'abhimanyu' || e.kind === 'satyaki') return (e._mass = PH.mass.hero);
+  return (e._mass = PH.mass.soldier);
 }
 // pinned bodies (fallen, bound, bowing, wheel-holding scripted beats) are not moved by pushes
 const pinned = e => e.state === 'fallen' || e.state === 'bound' || e.state === 'pranam' || e.scriptPinned;
@@ -21,13 +23,13 @@ export function impulse(e, ax, ay, power) {
   if (!e || pinned(e) || !power) return;
   const m = massOf(e), d = Math.hypot(ax, ay) || 1;
   e.kx = (e.kx || 0) + ax / d * power / m; e.ky = (e.ky || 0) + ay / d * power / m;
-  const sp = Math.hypot(e.kx, e.ky), cap = 900; if (sp > cap) { e.kx *= cap / sp; e.ky *= cap / sp; }
+  const sp = Math.hypot(e.kx, e.ky), cap = PH.impulseCap; if (sp > cap) { e.kx *= cap / sp; e.ky *= cap / sp; }
 }
 // integrate impulse: ground friction bleeds it off in ~0.4 s
 export function integrateImpulse(e, dt) {
   if (!e.kx && !e.ky) return;
   e.x += e.kx * dt; e.y += e.ky * dt;
-  const f = Math.exp(-7 * dt); e.kx *= f; e.ky *= f;
+  const f = Math.exp(-PH.impulseFriction * dt); e.kx *= f; e.ky *= f;
   if (Math.abs(e.kx) < 4) e.kx = 0; if (Math.abs(e.ky) < 4) e.ky = 0;
 }
 

@@ -1,5 +1,6 @@
 // Boss AI. Each boss is a move-set; think() picks a move (~50/50 between pressure/ranged families) so no fixed pattern emerges.
-import { BOSSES } from './config.js';
+import { BOSSES, RULES } from './config.js';
+import { isMarmaHit } from './marma.js';
 import { Soldier, angDiff, lerp, rnd, TAU } from './entities.js';
 import { ap, dp, impulse, integrateImpulse } from './physics.js';
 let _id = 5000;
@@ -7,7 +8,7 @@ let _id = 5000;
 export class Boss {
   constructor(key, x, y, world) {
     const d = BOSSES[key]; this.key = key; this.def = d; this.id = _id++; this.isBoss = true; this.team = 'kaurava';
-    this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.r = d.radius; this.maxHp = d.hp; this.hp = d.hp; this.speed = d.speed; this.facing = Math.PI / 2;
+    this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.r = d.radius; const hpMul = (world && world.mods && world.mods.bossHpMult) || 1; this.maxHp = Math.round(d.hp * hpMul); this.hp = this.maxHp; this.marma = RULES.marma.bosses[key] || null; this.marmaFound = false; this.speed = d.speed; this.facing = Math.PI / 2;
     this.alive = true; this.hurtT = 0; this.stun = 0; this.bound = 0; this.slow = 0; this.burn = 0; this.guard = false; this.kavach = !!d.kavach;
     this.move = null; this.moveT = 0; this.idleT = 0.8; this.tele = null; this.world = world; this.phase = 1; this.walkT = 0; this.weapon = d.weapon;
     this.extras = {}; this.rage = false; this.invuln = false; this.defeated = false;
@@ -23,11 +24,18 @@ export class Boss {
     if (this.guard && hit && hit.kind === 'gada') { this.guard = false; this.move = null; this.stun = Math.max(this.stun, 1.0); world.audio.sfx('clash'); world.floatText(this.x, this.y - 60, 'रक्षा टूटी!', '#FFFFFF'); world.burst(this.x, this.y - 10, '#FFFFFF', 14, 220, true); }
     if (this.moves.onHit && this.moves.onHit(this, world, hit, d) === false) return;
     if (this.bound > 0) d *= 1.3;
+    if (world.mods) d *= world.mods.enemyDamageTakenMult;
+    // marma: ordinary blows graze and cannot finish him; only his vital point lands in full
+    if (this.marma && !world.scripted && hit && hit.kind !== 'astra') {
+      const MR = RULES.marma, floor = this.maxHp * MR.floorPct;
+      if (isMarmaHit(this.marma, this, world, hit)) { d *= MR.hitMult; this.stun = Math.max(this.stun, MR.hitStun); this.move = null; if (world.onMarma) world.onMarma(this, hit); }
+      else { d *= MR.grazeMult; if (this.hp - d < floor) { d = Math.max(0, this.hp - floor); if (d < 0.5 && world.onGraze) world.onGraze(this, hit); } }
+    }
     if (this.def.noKill) d = Math.min(d, Math.max(0, this.hp - this.maxHp * this.def.noKill));
     this.hp -= d; this.hurtT = 0.2; world.blood(this.x, this.y, hit ? hit.x : this.x, hit ? hit.y : this.y + 10, hit && (hit.kind === 'gada' || hit.kind === 'chakra') ? 1.6 : 1); world.audio.sfx('hit'); world.shake(2);
-    const kn = hit ? (hit.knock || (hit.kind === 'arrow' ? (hit.charged ? 200 : 60) : 0)) : 0; // mass decides how far a maharathi gives
+    const AK = RULES.physics.arrowKnock; const kn = hit ? (hit.knock || (hit.kind === 'arrow' ? (hit.charged ? AK.bossCharged : AK.boss) : 0)) : 0; // mass decides how far a maharathi gives
     if (kn && !this.guard) { if (hit.kind === 'arrow' && hit.vx !== undefined) impulse(this, hit.vx, hit.vy, kn); else impulse(this, this.x - hit.x, this.y - hit.y, kn); }
-    if (this.phase === 1 && this.hpPct <= 0.5) { this.phase = 2; world.onBossPhase2(this); }
+    if (this.phase === 1 && this.hpPct <= RULES.shakti.bigAstraAt) { this.phase = 2; world.onBossPhase2(this); }
     if (this.hp <= 0) { this.hp = 0; this.alive = false; this.defeated = true; world.onBossDefeated(this); }
   }
   applyStatus(s) { if (s.stun) this.stun = Math.max(this.stun, s.stun); if (s.bind) this.bound = Math.max(this.bound, s.bind); if (s.slow) this.slow = Math.max(this.slow, s.slow); if (s.burn) this.burn = Math.max(this.burn, s.burn); this.move = null; this.tele = null; }
@@ -54,7 +62,7 @@ export class Boss {
 }
 
 // helpers to build moves
-const telegraph = (b, world, shape) => { b.tele = shape; };
+const telegraph = (b, world, shape) => { b.tele = shape; b.teleUntil = world.time + (shape.t || 0.4); };
 const melee = (b, world, dmg, range, knock, kind = 'sword') => { world.addHit({ owner: b, team: 'kaurava', x: b.x + Math.cos(b.facing) * range * 0.55, y: b.y + Math.sin(b.facing) * range * 0.55, r: range * 0.75, dmg, knock, life: 0.12, kind }); world.audio.sfx(kind === 'gada' ? 'gada' : 'sword'); };
 const shoot = (b, world, angle, speed, dmg, kind = 'arrow', extra = {}) => world.addProjectile(Object.assign({ owner: b, team: 'kaurava', x: b.x + Math.cos(angle) * 30, y: b.y + Math.sin(angle) * 30, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, dmg, life: 2.2, kind }, extra));
 

@@ -1,5 +1,6 @@
 // Entities: Hero (Abhimanyu / Satyaki), Soldier, Boss base, Projectile, Pickup, Particle.
-import { PLAYER, SATYAKI } from './config.js';
+import { PLAYER, SATYAKI, RULES } from './config.js';
+const SV = RULES.survival, SH = RULES.shield;
 import { ap, dp, impulse, integrateImpulse } from './physics.js';
 
 export const TAU = Math.PI * 2;
@@ -18,15 +19,15 @@ export class Hero {
     this.state = 'idle'; this.stateT = 0; this.cd = { sword: 0, bow: 0, gada: 0, dodge: 0, jump: 0 };
     this.combo = 0; this.comboT = 0; this.charge = 0; this.charging = false; this.invuln = 0; this.hurtT = 0;
     this.team = 'pandava'; this.alive = true; this.weaponsBroken = { bow: false, gada: false }; this.astra = null; this.astraUsed = false;
-    this.stats = { hits: 0, dmg: 0, dodges: 0, shards: 0 }; this.chakra = false; this.arrows = kind === 'satyaki' ? 55 : 45; this.maxArrows = kind === 'satyaki' ? 55 : 45; this.weapon = 'sword'; this.blocking = false; this.blockT = 0; this.shieldBroken = false; this.shakti = 0; this.shaktiMax = 100; this.regenWait = 0; this.z = 0; this.noArrowT = 0; this.lastAttackDir = this.facing; this.walkT = 0;
+    this.stats = { hits: 0, dmg: 0, dodges: 0, shards: 0 }; this.chakra = false; this.arrows = this.cfg.arrows; this.maxArrows = this.cfg.arrows; this.weapon = 'sword'; this.blocking = false; this.blockT = 0; this.shieldBroken = false; this.shakti = 0; this.shaktiMax = RULES.shakti.max; this.regenWait = 0; this.z = 0; this.noArrowT = 0; this.lastAttackDir = this.facing; this.walkT = 0;
   }
   takeDamage(d, world, src, knock = 160) {
     if (!this.alive || this.invuln > 0 || this.state === 'dodge' || (this.state === 'jump' && this.z > 6)) return false;
-    d *= 0.6;
-    if (this.blocking && src) { const a = src.vx !== undefined && (src.vx || src.vy) ? Math.atan2(-src.vy, -src.vx) : Math.atan2(src.y - this.y, src.x - this.x); if (Math.abs(angDiff(this.facing, a)) < 1.15) { const perfect = this.blockT < 0.22; world.audio.sfx('clash'); world.burst(this.x + Math.cos(this.facing) * 22, this.y - 14 + Math.sin(this.facing) * 22, '#FFE8A3', perfect ? 18 : 8, perfect ? 240 : 140, true);
-      if (perfect) { world.floatText(this.x, this.y - 60, world.lang === 'en' ? 'Perfect block!' : 'सटीक रोक!', '#FFE8A3'); const o = src.owner && src.owner.alive ? src.owner : (src.alive ? src : null); if (o && o.team === 'kaurava') { if (o.isBoss) o.stun = Math.max(o.stun || 0, 0.9); else o.stun = Math.max(o.stun || 0, 1.3); } if (this.shakti !== undefined) this.shakti = Math.min(this.shaktiMax, this.shakti + 6); this.invuln = 0.2; return false; }
-      d *= 0.15; impulse(this, -Math.cos(this.facing), -Math.sin(this.facing), 60 + knock * 0.3); if (d < 0.5) return false; knock = 0; } }
-    this.regenWait = 4; this.streak = 0; this.hp -= d; this.hurtT = 0.25; this.invuln = 0.35; world.audio.sfx('hurt'); world.shake(Math.min(12, d * 0.6)); world.hurtFlash = Math.min(1, 0.35 + d * 0.03); world.floatText(this.x, this.y - 56, '-' + Math.round(d), '#FF5A3B');
+    d *= SV.damageTaken * ((world.mods && world.mods.enemyDmgMult) || 1);
+    if (this.blocking && src) { const a = src.vx !== undefined && (src.vx || src.vy) ? Math.atan2(-src.vy, -src.vx) : Math.atan2(src.y - this.y, src.x - this.x); if (Math.abs(angDiff(this.facing, a)) < SH.frontArc) { const perfect = this.blockT < SH.perfectWindow; world.audio.sfx('clash'); world.burst(this.x + Math.cos(this.facing) * 22, this.y - 14 + Math.sin(this.facing) * 22, '#FFE8A3', perfect ? 18 : 8, perfect ? 240 : 140, true);
+      if (perfect) { world.floatText(this.x, this.y - 60, world.lang === 'en' ? 'Perfect block!' : 'सटीक रोक!', '#FFE8A3'); const o = src.owner && src.owner.alive ? src.owner : (src.alive ? src : null); if (o && o.team === 'kaurava') { if (o.isBoss) o.stun = Math.max(o.stun || 0, 0.9); else o.stun = Math.max(o.stun || 0, 1.3); } if (this.shakti !== undefined) this.shakti = Math.min(this.shaktiMax, this.shakti + SH.perfectShakti); this.invuln = 0.2; return false; }
+      { const att = src.owner || src; if (att && att.isBoss) { this._blockedAt = world.time; this._blockedBoss = att; } } d *= SH.reduce; impulse(this, -Math.cos(this.facing), -Math.sin(this.facing), 60 + knock * 0.3); if (d < 0.5) return false; knock = 0; } }
+    this.regenWait = SV.regenAfter; this.streak = 0; this.hp -= d; this.hurtT = 0.25; this.invuln = 0.35; world.audio.sfx('hurt'); world.shake(Math.min(12, d * 0.6)); world.hurtFlash = Math.min(1, 0.35 + d * 0.03); world.floatText(this.x, this.y - 56, '-' + Math.round(d), '#FF5A3B');
     world.blood(this.x, this.y, src ? src.x : this.x - Math.cos(this.facing) * 10, src ? src.y : this.y, 1);
     if (src && knock) { const dir = src.vx && src.vy !== undefined && !src.isBoss && src.kind ? [src.vx, src.vy] : [this.x - src.x, this.y - src.y]; impulse(this, dir[0], dir[1], knock); }
     if (this.hp <= 0) { this.hp = 0; this.alive = false; this.state = 'dead'; world.onHeroDown(this); }
@@ -39,7 +40,7 @@ export class Hero {
     if (this.state === 'fallen') { this.vx = this.vy = 0; this.charging = false; return; }
     if (this.state === 'pranam') { this.vx = this.vy = 0; this.charging = false; this.stateT -= dt; if (this.stateT <= 0) this.state = 'idle'; return; }
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
-    this.regenWait -= dt; if (this.regenWait <= 0 && this.hp < this.maxHp * 0.6 && this.state !== 'fallen') this.hp = Math.min(this.maxHp * 0.6, this.hp + 3 * dt);
+    this.regenWait -= dt; if (this.regenWait <= 0 && this.hp < this.maxHp * SV.regenCap && this.state !== 'fallen') this.hp = Math.min(this.maxHp * SV.regenCap, this.hp + SV.regenPerSec * dt);
     this.invuln = Math.max(0, this.invuln - dt); this.hurtT = Math.max(0, this.hurtT - dt); this.stateT -= dt; this.comboT -= dt;
     if (this.comboT <= 0) this.combo = 0;
     const c = this.cfg;
@@ -49,7 +50,7 @@ export class Hero {
     if (intent.weaponSel && ['sword', 'bow', 'gada'].includes(intent.weaponSel)) this.setWeapon(intent.weaponSel, world);
     if (intent.switchW) { const order = ['sword', 'bow', 'gada'].filter(w => !(this.weaponsBroken && this.weaponsBroken[w])); const i = order.indexOf(this.weapon); this.setWeapon(order[(i + 1) % order.length] || 'sword', world); }
     if (this.weaponsBroken && this.weaponsBroken[this.weapon]) this.setWeapon('sword', world);
-    if (intent.attack !== undefined || intent.attackHeld !== undefined) { const w = this.weapon; intent = Object.assign({}, intent, { sword: intent.sword || (w === 'sword' && intent.attack), gada: intent.gada || (w === 'gada' && intent.attack), bowHeld: intent.bowHeld || (w === 'bow' && intent.attackHeld), bowPressed: intent.bowPressed || (w === 'bow' && intent.attack) }); }
+    if (intent.attack !== undefined || intent.attackHeld !== undefined) { const w = this.weapon; intent = Object.assign({}, intent, { sword: intent.sword || (w === 'sword' && (intent.attack || (RULES.controls.holdToRepeatMelee && intent.attackHeld))), gada: intent.gada || (w === 'gada' && (intent.attack || (RULES.controls.holdToRepeatMelee && intent.attackHeld))), /* hold Strike = keep swinging */ bowHeld: intent.bowHeld || (w === 'bow' && intent.attackHeld), bowPressed: intent.bowPressed || (w === 'bow' && intent.attack) }); }
     // aim
     if (intent.aimAngle !== undefined) this.aim = intent.aimAngle;
     else if (intent.mx || intent.my) this.aim = Math.atan2(intent.my, intent.mx);
@@ -63,10 +64,12 @@ export class Hero {
     if (this.blocking) { this.blockT += dt; this.facing = this.aim; }
     // movement
     const busy = this.state === 'gada' || this.state === 'sword' || this.state === 'stunned' || this.state === 'bound';
-    let spd = c.speed * (this.blocking ? 0.45 : 1) * (this.charging ? 0.45 : 1) * (busy ? 0.25 : 1) * (this.slow > 0 ? 0.55 : 1);
+    let spd = c.speed * (this.blocking ? SH.moveSpeed : 1) * (this.charging ? 0.45 : 1) * (busy ? 0.25 : 1) * (this.slow > 0 ? 0.55 : 1);
     if (this.state === 'dodge') { this.vx = Math.cos(this.dodgeA) * c.dodge.speed; this.vy = Math.sin(this.dodgeA) * c.dodge.speed; if (this.stateT <= 0) this.state = 'idle'; }
-    else if (this.state === 'jump') { const T = 0.62, k = 1 - Math.max(0, this.stateT) / T; this.z = 4 * 70 * k * (1 - k); // ballistic arc: rise slows, fall speeds up this.vx = lerp(this.vx, (intent.mx || this.jumpDx) * c.speed * 1.5, ap(0.12, dt)); this.vy = lerp(this.vy, (intent.my || this.jumpDy) * c.speed * 1.5, ap(0.12, dt));
-      if (this.stateT <= 0) { this.state = 'idle'; this.z = 0; world.addHit({ owner: this, team: this.team, x: this.x, y: this.y, r: 70, dmg: 6, knock: 380, life: 0.1, kind: 'gada', ring: true, inner: 0 }); world.burst(this.x, this.y + 10, '#D9A441', 16, 200); world.audio.sfx('gada'); world.shake(5); } }
+    else if (this.state === 'jump') { const T = SV.jumpTime, k = 1 - Math.max(0, this.stateT) / T; this.z = 4 * SV.jumpHeight * k * (1 - k); /* ballistic arc: rise slows, fall speeds up */ this.vx = lerp(this.vx, (intent.mx || this.jumpDx) * c.speed * 1.5, ap(0.12, dt)); this.vy = lerp(this.vy, (intent.my || this.jumpDy) * c.speed * 1.5, ap(0.12, dt));
+      if ((intent.gada || (intent.attack && this.weapon === 'gada')) && this.weapon === 'gada' && !this.weaponsBroken?.gada) this._plunge = true;
+      if (this.stateT <= 0 && this._plunge) { this._plunge = false; this.state = 'idle'; this.z = 0; this.cd.gada = c.gada.cd; world.addHit({ owner: this, team: this.team, x: this.x + Math.cos(this.aim) * 30, y: this.y + Math.sin(this.aim) * 30, r: 95, dmg: c.gada.dmg * 1.2, knock: c.gada.knock + 80, life: 0.12, kind: 'gada', plunge: true }); world.shake(10); world.audio.sfx('gada'); world.burst(this.x, this.y, '#E0B072', 22, 260); }
+      if (this.stateT <= 0) { this.state = 'idle'; this.z = 0; world.addHit({ owner: this, team: this.team, x: this.x, y: this.y, r: 70, dmg: SV.landingDmg, knock: SV.landingKnock, life: 0.1, kind: 'gada', ring: true, inner: 0 }); world.burst(this.x, this.y + 10, '#D9A441', 16, 200); world.audio.sfx('gada'); world.shake(5); } }
     else if (this.state === 'stunned' || this.state === 'bound') { this.vx *= dp(0.8, dt); this.vy *= dp(0.8, dt); if (this.stateT <= 0) this.state = 'idle'; }
     else {
       this.vx = lerp(this.vx, intent.mx * spd, ap(0.35, dt)); this.vy = lerp(this.vy, intent.my * spd, ap(0.35, dt));
@@ -74,7 +77,7 @@ export class Hero {
       if (busy && this.stateT <= 0) this.state = 'idle';
       // actions
       if (this.blocking) { intent = Object.assign({}, intent, { sword: false, gada: false, bowHeld: false, bowPressed: false }); }
-      if (intent.jump && this.cd.jump <= 0 && !this.chakra) { this.blocking = false; this.state = 'jump'; this.stateT = 0.62; this.cd.jump = 0.9; this.jumpDx = intent.mx || Math.cos(this.facing) * 0.6; this.jumpDy = intent.my || Math.sin(this.facing) * 0.6; this.charging = false; this.charge = 0; world.audio.sfx('dodge'); this.stats.dodges++; }
+      if (intent.jump && this.cd.jump <= 0 && !this.chakra) { this.blocking = false; this.state = 'jump'; this.stateT = SV.jumpTime; this.cd.jump = 0.9; this.jumpDx = intent.mx || Math.cos(this.facing) * 0.6; this.jumpDy = intent.my || Math.sin(this.facing) * 0.6; this.charging = false; this.charge = 0; world.audio.sfx('dodge'); this.stats.dodges++; }
       else if (intent.dodge && this.cd.dodge <= 0) { this.state = 'dodge'; this.stateT = c.dodge.dur; this.cd.dodge = c.dodge.cd; this.dodgeA = (intent.mx || intent.my) ? Math.atan2(intent.my, intent.mx) : this.facing; this.charging = false; this.charge = 0; world.audio.sfx('dodge'); this.stats.dodges++; world.trail(this); }
       else if (this.chakra && intent.sword && this.cd.sword <= 0 && this.state === 'idle') { this.state = 'sword'; this.stateT = 0.3; this.cd.sword = 0.55; this.facing = this.aim; this.swingSide = 0; world.addHit({ owner: this, team: this.team, x: this.x, y: this.y, r: 120, dmg: 22, knock: 650, life: 0.12, parry: true, kind: 'chakra', ring: true, inner: 10, breakShield: true }); world.audio.sfx('gada'); world.audio.sfx('sword'); world.shake(6); world.slashes.push({ x: this.x, y: this.y, a: this.aim, i: 0, life: 0.2, r: 125, color: '#F4C95D', full: true }); }
       else if (this.chakra && intent.gada && this.cd.gada <= 0 && this.state === 'idle') { this.state = 'gada'; this.stateT = 0.7; this.cd.gada = 2.2; this.facing = this.aim; this._chakraSlam = 0.4; }
@@ -107,8 +110,9 @@ export class Soldier {
   takeDamage(d, world, hit) {
     if (!this.alive) return;
     if (this.shield && hit && !hit.breakShield && hit.kind !== 'astra') { const a = Math.atan2(hit.y - this.y, hit.x - this.x); if (Math.abs(angDiff(this.facing, a)) < 1.1) { world.audio.sfx('clash'); world.burst(this.x + Math.cos(a) * 16, this.y + Math.sin(a) * 16, '#FFE8A3', 6, 120); return; } }
+    if (world.mods) d *= world.mods.enemyDamageTakenMult;
     this.hp -= d; this.hurtT = 0.2; world.blood(this.x, this.y, hit ? hit.x : this.x, hit ? hit.y : this.y + 10, hit && hit.kind === 'gada' ? 1.6 : 1); world.audio.sfx('hit');
-    const kn = hit ? (hit.knock || (hit.kind === 'arrow' ? (hit.charged ? 260 : 130) : 0)) : 0; // arrows carry momentum too
+    const AK = RULES.physics.arrowKnock; const kn = hit ? (hit.knock || (hit.kind === 'arrow' ? (hit.charged ? AK.soldierCharged : AK.soldier) : 0)) : 0; // arrows carry momentum too
     if (kn) { if (hit.kind === 'arrow' && hit.vx !== undefined) impulse(this, hit.vx, hit.vy, kn); else impulse(this, this.x - hit.x, this.y - hit.y, kn); }
     if (this.hp <= 0) { this.alive = false; world.onEnemyDead(this); }
   }

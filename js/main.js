@@ -1,5 +1,5 @@
 // Chakravyooha — orchestration: states, menus, co-op wiring, loop.
-import { RINGS, ASTRAS, BOSSES, CHARACTERS, INTRO, RING_LINES, EPILOGUE, RING7, CODEX, HYPE } from './config.js';
+import { RINGS, ASTRAS, BOSSES, CHARACTERS, INTRO, RING_LINES, EPILOGUE, RING7, CODEX, HYPE, RULES } from './config.js';
 import { Hero } from './entities.js';
 import { World } from './world.js';
 import { Renderer } from './render.js';
@@ -15,6 +15,8 @@ import { renderCard, shareCard, downloadCard, whatsappLink, fmtTime } from './sh
 import { Home, portraitCanvas } from './home.js';
 import { drawWeapon } from './art.js';
 import { T, lang, setLang, tr, charInfo } from './i18n.js';
+import { Adaptive } from './adaptive.js';
+import { MARMA_LINES } from './marma.js';
 // canvas text written inline in Hindi (names, gate labels, float text, share card) follows the chosen language
 { const P = CanvasRenderingContext2D.prototype; for (const f of ['fillText', 'strokeText', 'measureText']) { const o = P[f]; P[f] = function (t, ...a) { return o.call(this, tr(t), ...a); }; }
   // gradients with a negative or non-finite radius throw mid-frame; clamp them instead
@@ -25,7 +27,7 @@ window.__T = T; window.__bios = CHAR_BIOS; window.__charTitle = k => { const i =
 
 class Game {
   constructor() {
-    this.canvas = document.getElementById('game'); this.ui = new UI(); this.r = new Renderer(this.canvas); this.input = new Input(this.canvas); this.audio = new AudioEngine(); this.voice = new Voice(); this.save = new Save(); this.cine = new Cinematic(this.r, this.voice, this.audio, this.ui);
+    this.canvas = document.getElementById('game'); this.ui = new UI(); this.r = new Renderer(this.canvas); this.input = new Input(this.canvas); this.audio = new AudioEngine(); this.voice = new Voice(); this.save = new Save(); this.adaptive = new Adaptive(this.save); this.cine = new Cinematic(this.r, this.voice, this.audio, this.ui);
     this.state = 'title'; this.world = null; this.ring7 = null; this.elapsed = 0; this.ringIdx = 0; this.abhi = null; this.satyaki = null; this.coop = { mode: 'none', host: null, client: null, friend: null }; this.proxy = null; this.last = performance.now(); this.t = 0; this.netT = 0; this.waitT = 0;
     this.voice.muted = !this.save.d.voice; this.audio.setMute(!!this.save.d.mute); this.home = new Home(this); this.ui.initWeapons(drawWeapon); this.setLanguage(this.save.d.langChosen && this.save.d.lang ? this.save.d.lang : 'en');
     this.bindTouch(); window.addEventListener('beforeunload', () => { if (this.coop.host) this.coop.host.close(); if (this.coop.client) this.coop.client.close(); });
@@ -52,7 +54,7 @@ class Game {
   startRing(idx) {
     this.ringIdx = idx; this.ui.hideMenu(); this.home.hide(); this.ui.showHud(true); this.voice.stop();
     const heroes = [this.abhi]; if (this.coop.mode === 'host' && this.coop.friend && idx < 6) { if (!this.satyaki) { this.satyaki = new Hero('satyaki', 0, 0); this.satyaki.name = 'सात्यकि'; } this.satyaki.hp = this.satyaki.maxHp; this.satyaki.alive = true; this.satyaki.state = 'idle'; heroes.push(this.satyaki); }
-    const before = this.abhi.hp; this.abhi.hp = idx === 0 ? this.abhi.maxHp : Math.min(this.abhi.maxHp, Math.max(this.abhi.hp + this.abhi.maxHp * 0.4, this.abhi.maxHp * 0.75)); this._gateHeal = Math.round(this.abhi.hp - before); this.abhi.alive = true; this.abhi.state = 'idle'; this.abhi.weaponsBroken = { bow: false, gada: false }; this.abhi.arrows = this.abhi.maxArrows; this.abhi.shieldBroken = false; this.abhi.blocking = false; this.abhi.weapon = 'sword'; this.abhi.shakti = this.abhi.shakti || 0;
+    const before = this.abhi.hp; this.abhi.hp = idx === 0 ? this.abhi.maxHp : Math.min(this.abhi.maxHp, Math.max(this.abhi.hp + this.abhi.maxHp * RULES.survival.gateHeal, this.abhi.maxHp * RULES.survival.gateFloor)); this._gateHeal = Math.round(this.abhi.hp - before); this.abhi.alive = true; this.abhi.state = 'idle'; this.abhi.weaponsBroken = { bow: false, gada: false }; this.abhi.arrows = this.abhi.maxArrows; this.abhi.shieldBroken = false; this.abhi.blocking = false; this.abhi.weapon = 'sword'; this.abhi.shakti = this.abhi.shakti || 0;
     const ring = RINGS[idx]; this.ui.setRing(ring);
     this.world = new World(idx, heroes, this.audio, {
       wave: n => { this.ui.toast(n === 1 ? T('toastWave1') : T('toastWave2'), 1800); this.ui.setObjective(T('objWave')); },
@@ -63,19 +65,30 @@ class Game {
       ringDone: () => { try { this.onRingDone(); } catch (e) { console.error('ringDone', e); this.ui.hideMenu(); if (this.ringIdx < RINGS.length - 1) this.startRing(this.ringIdx + 1); else this.title(); } },
       vipatti: () => { this.ui.toast(T('toastVip'), 2200); this.hype('vipatti', true); },
       nabhi: () => { this.ui.toast(T('toastNabhi'), 2500); },
-      hype: (key, strong) => this.hype(key, strong)
+      hype: (key, strong) => this.hype(key, strong),
+      marma: (b, what) => this.onMarmaEvent(b, what)
     });
+    // adaptive difficulty: this ring's modifiers (help after falls, pressure when cruising)
+    this.world.mods = idx === 6 ? null : this.adaptive.mods(idx); this.abhi.extraAstra = 0;
+    if (this.world.mods && this.world.mods.mercy > 0) { this.abhi.shakti = Math.max(this.abhi.shakti || 0, this.world.mods.shaktiAtStart); this.abhi.extraAstra = this.world.mods.extraBigAstra; setTimeout(() => this.ui.toast(T('blessing' + this.world.mods.mercy), 4200), 2600); }
     if (heroes.length > 1 && this.world.arena.wallPoint) { const wp = this.world.arena.wallPoint(-0.36, 70); this.world.nabhi = { x: wp.x, y: wp.y, hp: 160 + idx * 40, maxHp: 160 + idx * 40 }; }
     this.ring7 = null; if (idx === 6) { this.ring7 = new Ring7(this.world, this); this.audio.playMusic('siege', 132); }
     else { this.audio.playMusic('ring', ring.bpm); setTimeout(() => this.sayRaw(RING_LINES[idx + 1].drona, '#D9A441', 'ring' + (idx + 1) + '_drona'), 900); this.ui.setObjective(''); }
-    this.state = 'ring'; if (idx === 0 || this.save.d.runs <= 1) this.ui.showControlsHint(this.input.isTouch);
+    this.state = 'ring'; if ((idx === 0 || this.save.d.runs <= 1) && !this._hintShown) { this._hintShown = true; this.ui.showControlsHint(this.input.isTouch); }
     this.ui.toast(ring.name + ' — ' + ring.sub + (idx > 0 && this._gateHeal > 0 ? (lang() === 'en' ? '  ·  +' + this._gateHeal + ' life, quiver refilled' : '  ·  +' + this._gateHeal + ' प्राण, तरकश भरा') : ''), 3200);
   }
+  // marma: no hints; when the player finds the vital point, Sanjaya marks the moment
+  onMarmaEvent(b, what) {
+    const L = MARMA_LINES[b.key]; if (!L) return; const pick = l => ({ who: l.who, text: lang() === 'en' ? l.en : l.hi });
+    if (what === 'found') { this.ui.hypeWord(lang() === 'en' ? 'Marma!' : 'मर्म!', true); this.sayLine(pick(L[2])); }
+  }
   onDeath() {
+    if (this.ringIdx < 6) this.adaptive.onDeath(this.ringIdx);
     this.state = 'dead'; this.audio.playMusic('none'); const ring = RINGS[this.ringIdx];
     setTimeout(() => this.ui.showMenu({ kicker: ring.name, title: T('fell'), body: [T('fellBody'), this.abhi.stats.hits + ' ⚔ · ' + this.abhi.stats.dodges + ' ↷'], buttons: [{ label: T('retry'), sub: T('retrySub'), cls: 'primary', onClick: () => { this.abhi.hp = this.abhi.maxHp; this.startRing(this.ringIdx); } }, { label: T('home'), onClick: () => this.title() }] }), 900);
   }
   onRingDone() {
+    if (this.ringIdx < 6 && this.world) this.adaptive.onRingClear(this.ringIdx, this.world.time, this.abhi.hp / this.abhi.maxHp);
     const ring = RINGS[this.ringIdx]; const earned = ring.earnAstra; const astras = this.save.d.astras.slice(); if (earned && !astras.includes(earned)) astras.push(earned);
     this.save.checkpoint(this.ringIdx + 1, this.elapsed, astras); this.state = 'clear'; this.audio.playMusic('menu', 84); this.audio.sfx('unlock');
     const A = earned ? ASTRAS[earned] : null; const after = RING_LINES[this.ringIdx + 1].after; const nextRing = RINGS[this.ringIdx + 1];

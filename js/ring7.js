@@ -1,5 +1,5 @@
 // Ring 7: scripted siege (unwinnable) -> Mitra Smaran -> Satyaki phases A (Bana-jaala) B (Prana-sanchar) C (duel) D (core shatter).
-import { RING7, CHARACTERS, BOSSES } from './config.js';
+import { RING7, CHARACTERS, BOSSES, RULES } from './config.js';
 import { Hero, Soldier, Pickup as PickupRef, TAU, rnd, lerp } from './entities.js';
 import { Boss } from './bosses.js';
 
@@ -104,7 +104,7 @@ export class Ring7 {
   struggle() {
     if (!['W0', 'W1', 'K', 'W1b', 'W2'].includes(this.stage) || !this.pashHolders) return;
     this.strain = (this.strain || 0) + 1; const s = this.satyaki; this.w.burst(s.x + rnd(-14, 14), s.y - 30, '#B088FF', 3, 90, true);
-    if (this.strain % 7) return;
+    if (this.strain % RULES.satyaki.strugglePerLoosen) return;
     const m = this.pashHolders.filter(h => !h.retreat && (h.pushed || 0) < 1).sort((a, b) => Math.hypot(a.x - s.x, a.y - s.y) - Math.hypot(b.x - s.x, b.y - s.y))[0];
     if (!m) return; m.pushed = 1; m.stun = 1.2; this.w.audio.sfx('clash'); this.w.shake(4);
     this.w.floatText(m.x, m.y - 50, 'पाश ढीला!', '#B088FF'); this.w.floatText(s.x, s.y - 70, 'सात्यकि का बल!', '#F4C95D');

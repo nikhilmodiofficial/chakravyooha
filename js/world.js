@@ -1,5 +1,5 @@
 // Combat world for one ring: arena, waves, boss, hits, projectiles, pickups, particles, astra, decay.
-import { RINGS, ASTRAS, WORLD } from './config.js';
+import { RINGS, ASTRAS, WORLD, RULES } from './config.js';
 import { Hero, Soldier, Projectile, Pickup, Particle, TAU, rnd, clamp } from './entities.js';
 import { Boss } from './bosses.js';
 import { separate } from './physics.js';
@@ -17,6 +17,10 @@ export class World {
   // ---- spatial helpers
   inArena(x, y, pad = 0) { return this.arena.inside(x, y, pad); }
   clampToArena(e) { this.arena.clamp(e); }
+  // ---- marma: feedback when a blow only grazes a maharathi at his floor, and the moment his vital point is found
+  onGraze(b) { const now = this.time; if (now - (this._grazeT || -9) < 1.1) return; this._grazeT = now; this.audio.sfx('clash'); this.burst(b.x, b.y - 30, '#FFFFFF', 6, 120, true); this.floatText(b.x, b.y - 80, 'अडिग!', '#E8E2D0'); }
+  onMarma(b) { this.slowT = Math.max(this.slowT, 0.5); this.flash = Math.max(this.flash, 0.35); this.shake(10); this.burst(b.x, b.y - 30, '#F4C95D', 26, 300, true); this.floatText(b.x, b.y - 90, 'मर्म!', '#F4C95D'); this.audio.sfx('unlock'); if (!b.marmaFound) { b.marmaFound = true; this.ev.marma && this.ev.marma(b, 'found'); } }
+  lifeDropTick(dt) { const L = this.mods && this.mods.lifeDrop, h = this.heroes[0]; if (!L || !h || !h.alive || h.kind !== 'abhimanyu' || this.phase === 'won' || this.phase === 'intro') return; this._dropT = (this._dropT || 0) - dt; if (h.hp < h.maxHp * L.belowPct && this._dropT <= 0) { this._dropT = L.every; const a = rnd(0, TAU); const p = new Pickup(h.x + Math.cos(a) * 110, h.y + Math.sin(a) * 70); this.pickups.push(p); this.burst(p.x, p.y, '#F4C95D', 16, 160, true); this.floatText(p.x, p.y - 30, 'प्रसाद', '#F4C95D'); } }
   // a spent or wall-struck arrow drops and sticks in the ground at a shallow angle, instead of vanishing mid-air
   stickArrow(p) { if (!this.stuck) this.stuck = []; const a = p.angle + rnd(-0.25, 0.25); this.stuck.push({ x: p.x - Math.cos(p.angle) * 6, y: p.y - Math.sin(p.angle) * 6, a, team: p.team, life: 7 }); if (this.stuck.length > 90) this.stuck.shift(); }
   nearestHero(x, y) { let best = null, bd = 1e9; for (const h of this.heroes) if (h.alive && h.state !== 'bound' && h.state !== 'fallen') { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = h; } } return best; }
@@ -34,13 +38,13 @@ export class World {
   // ---- hype
   hype(key, strong = false) { this.ev.hype && this.ev.hype(key, strong); }
   // ---- events
-  onEnemyDead(e) { for (const h of this.heroes) if (h.alive && h.kind === 'abhimanyu') h.shakti = Math.min(h.shaktiMax, (h.shakti || 0) + (e.clone ? 4 : 14)); this.burst(e.x, e.y, e.color, 14, 200); if (!e.clone && e.type === 'archer' && Math.random() < 0.7) this.pickups.push(new Pickup(e.x + 14, e.y, 'quiver')); else if (!e.clone && Math.random() < 0.35) this.pickups.push(new Pickup(e.x, e.y)); if (e.clone) { this.burst(e.x, e.y, '#8F6CFF', 16, 180, true); this.floatText(e.x, e.y - 30, 'माया', '#8F6CFF'); } if (e.name) this.floatText(e.x, e.y - 40, e.name + ' पराजित', '#F4C95D'); }
+  onEnemyDead(e) { for (const h of this.heroes) if (h.alive && h.kind === 'abhimanyu') h.shakti = Math.min(h.shaktiMax, (h.shakti || 0) + (e.clone ? RULES.shakti.perCloneKill : RULES.shakti.perKill)); this.burst(e.x, e.y, e.color, 14, 200); if (!e.clone && e.type === 'archer' && Math.random() < 0.7) this.pickups.push(new Pickup(e.x + 14, e.y, 'quiver')); else if (!e.clone && Math.random() < 0.35 + ((this.mods && this.mods.extraHealDrops) || 0)) this.pickups.push(new Pickup(e.x, e.y)); if (e.clone) { this.burst(e.x, e.y, '#8F6CFF', 16, 180, true); this.floatText(e.x, e.y - 30, 'माया', '#8F6CFF'); } if (e.name) this.floatText(e.x, e.y - 40, e.name + ' पराजित', '#F4C95D'); }
   hurtFlash = 0;
   onHeroDown(h) { this.audio.sfx('die'); this.shake(14); this.ev.heroDown && this.ev.heroDown(h); }
   onBossPhase2(b) { this.audio.sfx('unlock'); this.flash = 0.6; this.hype('phase2', true); this.ev.phase2 && this.ev.phase2(b); for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(b.x + rnd(-60, 60), b.y + rnd(-60, 60))); this.pickups.push(new Pickup(b.x + rnd(-80, 80), b.y + 60, 'quiver')); }
   onBossDefeated(b) { this.burst(b.x, b.y, b.def.accent, 40, 320, true); this.shake(16); this.slowT = 1.6; this.phase = 'won'; this.phaseT = 16; this.audio.sfx('shatter'); this.hype('bossDown', true); this.arena.gateOpen = true; if (!this.scripted) for (const e of this.enemies) if (e.alive && !e.isBoss && !e.def) { e.hp = 0; e.alive = false; this.onEnemyDead(e); } this.ev.bossDefeated && this.ev.bossDefeated(b); }
   // ---- spawning
-  spawnWave(n) { const types = this.ringIdx >= 2 ? ['melee', 'melee', 'archer', 'shield'] : this.ringIdx >= 1 ? ['melee', 'melee', 'shield'] : ['melee']; const scale = 1 + this.ringIdx * 0.12; for (let i = 0; i < n; i++) { const sp = this.arena.enemySpawn(i, n); const s = new Soldier(sp.x, sp.y, types[Math.floor(Math.random() * types.length)], scale); this.enemies.push(s); this.burst(s.x, s.y, '#D9A441', 6, 100); } }
+  spawnWave(n) { if (this.mods) n = Math.max(1, Math.round(n * this.mods.soldiersMult)); const types = this.ringIdx >= 2 ? ['melee', 'melee', 'archer', 'shield'] : this.ringIdx >= 1 ? ['melee', 'melee', 'shield'] : ['melee']; const scale = 1 + this.ringIdx * 0.12; for (let i = 0; i < n; i++) { const sp = this.arena.enemySpawn(i, n); const s = new Soldier(sp.x, sp.y, types[Math.floor(Math.random() * types.length)], scale); this.enemies.push(s); this.burst(s.x, s.y, '#D9A441', 6, 100); } }
   spawnBoss() { const g = this.arena.bossSpawn(); this.boss = new Boss(this.ring.boss, g.x, g.y, this); this.bossIntroT = 2.4; this.audio.sfx('rumble'); this.ev.bossIntro && this.ev.bossIntro(this.boss); }
   // ---- astra
   canBigAstra(h) { return !!h.astra && !h.astraUsed && this.boss && this.boss.alive && this.boss.phase === 2; }
@@ -51,9 +55,9 @@ export class World {
       const key = h.astra || 'vayu', A = ASTRAS[key]; h.shakti = 0; this.audio.sfx(key); this.slowT = 1.2; this.flash = 0.6; this.shake(12);
       const b = this.boss && this.boss.alive ? this.boss : null; this.astraFx = { key, t: 0, dur: 2.0, x: h.x, y: h.y, tx: b ? b.x : h.x, ty: b ? b.y : h.y - 120, color: A.color, glow: A.glow };
       for (const e of this.enemies) if (e.alive && !e.def) { e.hp = 0; e.alive = false; this.onEnemyDead(e); }
-      if (b) setTimeout(() => { if (!b.alive) return; const dmg = Math.floor(b.maxHp * 0.06); b.hp = Math.max(1, b.hp - dmg); b.hurtT = 0.4; b.applyStatus({ stun: 1.2 }); this.floatText(b.x, b.y - 70, '-' + dmg, A.color); if (b.phase === 1 && b.hpPct <= 0.5) { b.phase = 2; this.onBossPhase2(b); } }, 700);
+      if (b) setTimeout(() => { if (!b.alive) return; const dmg = Math.floor(b.maxHp * RULES.shakti.lesserBossDmgPct); b.hp = Math.max(1, b.hp - dmg); b.hurtT = 0.4; b.applyStatus({ stun: 1.2 }); this.floatText(b.x, b.y - 70, '-' + dmg, A.color); if (b.phase === 1 && b.hpPct <= RULES.shakti.bigAstraAt) { b.phase = 2; this.onBossPhase2(b); } }, 700);
       this.hazards = []; this.hype('astra'); return true; }
-    const key = h.astra, A = ASTRAS[key]; h.astraUsed = true; this.audio.sfx(key); this.slowT = 2.6; this.slowmo = 0.25; this.flash = 1; this.shake(18);
+    const key = h.astra, A = ASTRAS[key]; h.astraUsed = true; if ((h.extraAstra || 0) > 0) { h.extraAstra--; h.astraUsed = false; } this.audio.sfx(key); this.slowT = 2.6; this.slowmo = 0.25; this.flash = 1; this.shake(18);
     this.astraFx = { key, t: 0, dur: 2.8, x: h.x, y: h.y, tx: this.boss.x, ty: this.boss.y, color: A.color, glow: A.glow };
     const b = this.boss; const dmg = Math.floor(b.maxHp * A.dmgPct);
     setTimeout(() => { if (!b.alive) return; b.hp = Math.max(1, b.hp - dmg); b.hurtT = 0.5; this.floatText(b.x, b.y - 70, '-' + dmg, A.color); b.applyStatus({ stun: A.stun, bind: A.bind, slow: A.slow, burn: A.burn }); if (b.hp <= 1) { b.hp = 1; } }, 900);
@@ -74,11 +78,12 @@ export class World {
       else if (this.phase === 'boss' && this.boss && this.boss.alive && this.enemies.filter(e => e.alive && !e.clone).length < 2 && Math.random() < sdt * 0.08 && this.ring.boss !== 'karna') { this.spawnWave(1); }
     }
     this.bossIntroT = Math.max(0, this.bossIntroT - dt);
+    this.lifeDropTick(sdt);
     // heroes
     for (const h of this.heroes) { h.streakT = (h.streakT || 0) - dt; if (h.streakT <= 0) h.streak = 0; }
     this.heroes.forEach((h, i) => { const it = intents[i] || { mx: 0, my: 0 }; if (this.bossIntroT > 0) { it.sword = it.gada = it.dodge = it.astra = false; it.bowHeld = false; } h.update(sdt, it, this); if (it.astra && h === this.heroes[0]) this.useAstra(h); });
     // passive decay (only Abhimanyu, only when fighting)
-    if (this.decayOn && this.phase !== 'won' && this.phase !== 'intro' && this.heroes[0] && this.heroes[0].alive && this.heroes[0].kind === 'abhimanyu') { const h = this.heroes[0]; h.hp -= this.ring.decay * 0.5 * sdt; if (h.hp <= 0) { h.hp = 0; h.alive = false; h.state = 'dead'; this.onHeroDown(h); } }
+    if (this.decayOn && this.phase !== 'won' && this.phase !== 'intro' && this.heroes[0] && this.heroes[0].alive && this.heroes[0].kind === 'abhimanyu') { const h = this.heroes[0]; h.hp -= this.ring.decay * RULES.survival.decayScale * sdt; if (h.hp <= 0) { h.hp = 0; h.alive = false; h.state = 'dead'; this.onHeroDown(h); } }
     const vip = this.heroes[0] && this.heroes[0].alive && this.heroes[0].hp < this.heroes[0].maxHp * 0.2;
     if (vip !== this.vipatti) { this.vipatti = vip; this.audio.setVipatti(vip); if (vip) { this.audio.sfx('vipatti'); this.ev.vipatti && this.ev.vipatti(); } }
     // enemies & boss

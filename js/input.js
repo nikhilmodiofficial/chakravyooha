@@ -1,3 +1,4 @@
+import { RULES } from './rules.js';
 // Input: keyboard (WASD/arrows + J K L Space U) and touch (virtual stick + buttons). Produces a frame "intent".
 export class Input {
   constructor(canvas) {
@@ -17,9 +18,17 @@ export class Input {
     this.canvas.addEventListener('contextmenu', e => e.preventDefault());
     this.canvas.addEventListener('wheel', e => { e.preventDefault(); this.wheel = true; }, { passive: false });
     // touch stick on canvas (left 45%)
-    this.touchAny = 0; const ts = e => { this.touchAny++; for (const t of e.changedTouches) { const r = this.canvas.getBoundingClientRect(); const x = t.clientX - r.left, y = t.clientY - r.top; if (x < r.width * 0.5 && this.touch.stickId === null) { this.touch.stickId = t.identifier; this.touch.stick = { ox: x, oy: y, x, y }; } } e.preventDefault(); };
-    const tm = e => { for (const t of e.changedTouches) if (t.identifier === this.touch.stickId) { const r = this.canvas.getBoundingClientRect(); this.touch.stick.x = t.clientX - r.left; this.touch.stick.y = t.clientY - r.top; } e.preventDefault(); };
-    const te = e => { this.touchAny = Math.max(0, this.touchAny - e.changedTouches.length); for (const t of e.changedTouches) if (t.identifier === this.touch.stickId) { this.touch.stickId = null; this.touch.stick = null; } };
+    // Floating joystick (mobile action-game standard): it appears where the left thumb lands, has a dead zone,
+    // and its base follows the thumb if it slides far, so the player never has to look for it.
+    const C = RULES.controls; const ST = { R: C.stickRadius, dead: C.stickDeadZone, follow: C.stickFollow };
+    this.stickEl = document.getElementById('stick'); const knob = this.stickEl && this.stickEl.querySelector('.knob'), base = this.stickEl && this.stickEl.querySelector('.base');
+    const show = () => { if (!this.stickEl) return; const s = this.touch.stick; if (!s) { this.stickEl.classList.add('idle'); this.stickEl.style.transform = ''; knob.style.transform = ''; return; } this.stickEl.classList.remove('idle'); this.stickEl.style.transform = `translate(${s.ox - ST.R}px, ${s.oy - ST.R}px)`; let dx = s.x - s.ox, dy = s.y - s.oy; const d = Math.hypot(dx, dy); if (d > ST.R) { dx *= ST.R / d; dy *= ST.R / d; } knob.style.transform = `translate(${dx}px, ${dy}px)`; };
+    this.ST = ST;
+    this.touchAny = 0; const ts = e => { this.touchAny++; for (const t of e.changedTouches) { const x = t.clientX, y = t.clientY; if (x < window.innerWidth * 0.5 && this.touch.stickId === null) { this.touch.stickId = t.identifier; this.touch.stick = { ox: x, oy: y, x, y }; show(); } } e.preventDefault(); };
+    const tm = e => { for (const t of e.changedTouches) if (t.identifier === this.touch.stickId) { const s = this.touch.stick; s.x = t.clientX; s.y = t.clientY; const dx = s.x - s.ox, dy = s.y - s.oy, d = Math.hypot(dx, dy), lim = ST.R * ST.follow; if (d > lim) { s.ox += dx / d * (d - lim); s.oy += dy / d * (d - lim); } show(); } e.preventDefault(); };
+    const te = e => { this.touchAny = Math.max(0, this.touchAny - e.changedTouches.length); for (const t of e.changedTouches) if (t.identifier === this.touch.stickId) { this.touch.stickId = null; this.touch.stick = null; show(); } };
+    // weapon slots in the HUD are buttons too: tap a weapon to take it up
+    for (const slot of document.querySelectorAll('#weapons .wslot[data-w]')) { const pick = e => { e.preventDefault(); e.stopPropagation(); this.pressed.add('wsel_' + slot.dataset.w); }; slot.addEventListener('touchstart', pick, { passive: false }); slot.addEventListener('mousedown', pick); }
     this.canvas.addEventListener('touchstart', ts, { passive: false }); this.canvas.addEventListener('touchmove', tm, { passive: false });
     this.canvas.addEventListener('touchend', te); this.canvas.addEventListener('touchcancel', te);
   }
@@ -44,7 +53,7 @@ export class Input {
     let mx = 0, my = 0; const gp = this.readGamepad();
     if (this.held('a') || this.held('arrowleft')) mx -= 1; if (this.held('d') || this.held('arrowright')) mx += 1;
     if (this.held('w') || this.held('arrowup')) my -= 1; if (this.held('s') || this.held('arrowdown')) my += 1;
-    if (this.touch.stick) { const dx = this.touch.stick.x - this.touch.stick.ox, dy = this.touch.stick.y - this.touch.stick.oy, d = Math.hypot(dx, dy); if (d > 8) { const m = Math.min(1, d / 60); mx = dx / d * m; my = dy / d * m; } }
+    if (this.touch.stick) { const dx = this.touch.stick.x - this.touch.stick.ox, dy = this.touch.stick.y - this.touch.stick.oy, d = Math.hypot(dx, dy), R = this.ST.R; const n = Math.min(1, d / R); if (n > this.ST.dead) { const m = Math.min(1, (n - this.ST.dead) / (0.8 - this.ST.dead)); mx = dx / d * m; my = dy / d * m; } }
     if (gp && (gp.mx || gp.my) && !mx && !my) { mx = gp.mx; my = gp.my; }
     const l = Math.hypot(mx, my); if (l > 1) { mx /= l; my /= l; }
     const P = k => this.pressed.has(k), H = k => this.held(k);
@@ -54,7 +63,7 @@ export class Input {
       attackHeld: H('j') || H('mouse0') || this.btn('attack') || (gp && (gp.swordHeld || gp.bowHeld)),
       block: H('k') || H('mouse2') || this.btn('block') || (gp && gp.block),
       switchW: P('q') || P('tab') || P('btn_switch') || (gp && gp.gada) || this.wheel,
-      weaponSel: P('1') ? 'sword' : P('2') ? 'bow' : P('3') ? 'gada' : null,
+      weaponSel: P('1') || P('wsel_sword') ? 'sword' : P('2') || P('wsel_bow') ? 'bow' : P('3') || P('wsel_gada') ? 'gada' : null,
       jump: P(' ') || P('btn_jump') || (gp && gp.jump),
       dodge: P('shift') || (gp && gp.dodge),
       astra: P('e') || P('u') || P('btn_astra') || (gp && gp.astra),
