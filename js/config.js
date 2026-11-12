@@ -1,0 +1,179 @@
+// Chakravyooh — central data: palette, rings, bosses, astras, dialogues.
+// Everything that a designer would tune lives here.
+
+export const PALETTE = {
+  terracotta: '#B5472D', ochre: '#D9A441', indigo: '#1B1F3B', bone: '#F1E7D0',
+  gold: '#F4C95D', blood: '#7A1E1E', ink: '#0B0C14', smoke: '#3A3F5C',
+  cyan: '#7FE3FF', green: '#5FD88A', violet: '#8F6CFF', frost: '#CFF4FF', ember: '#FF7A2A'
+};
+
+export const WORLD = { w: 1400, h: 900 };
+
+export const PLAYER = {
+  maxHp: 100, speed: 250, radius: 20,
+  sword: { dmg: 9, arc: 1.3, range: 70, cd: 0.22, comboWindow: 0.55, comboDmg: [9, 10, 16] },
+  bow:   { dmg: 12, chargedDmg: 26, speed: 760, cd: 0.38, chargeTime: 0.7 },
+  gada:  { dmg: 30, arc: 1.7, range: 90, cd: 0.9, windup: 0.32, knock: 420 },
+  dodge: { dur: 0.38, speed: 620, cd: 0.75 },
+  shardHeal: 8
+};
+
+export const SATYAKI = {
+  maxHp: 130, speed: 265, radius: 21,
+  sword: { dmg: 8, arc: 1.4, range: 72, cd: 0.17, comboWindow: 0.5, comboDmg: [8, 8, 9, 15] },
+  bow:   { dmg: 14, chargedDmg: 30, speed: 800, cd: 0.34, chargeTime: 0.6 },
+  gada:  { dmg: 40, arc: 1.9, range: 100, cd: 1.0, windup: 0.36, knock: 520 },
+  dodge: { dur: 0.36, speed: 650, cd: 0.7 },
+  shardHeal: 10
+};
+
+export const ASTRAS = {
+  vayu:   { name: 'वायु अस्त्र',  en: 'Vayu Astra',   color: '#CFF4FF', glow: '#7FE3FF', dmgPct: 0.25, stun: 2.2, desc: 'प्रचंड चक्रवात — शत्रु हवा में उछलते हैं।' },
+  agni:   { name: 'अग्नि अस्त्र',  en: 'Agni Astra',   color: '#FF7A2A', glow: '#FFC46B', dmgPct: 0.30, burn: 4,  desc: 'अग्नि-लहर — जलन का प्रहार।' },
+  varun:  { name: 'वरुण अस्त्र',  en: 'Varun Astra',  color: '#4FA3FF', glow: '#9FD3FF', dmgPct: 0.30, slow: 4,  desc: 'जल-प्रवाह — शत्रु के बाण और गति धुल जाते हैं।' },
+  naag:   { name: 'नाग अस्त्र',   en: 'Naag Astra',   color: '#5FD88A', glow: '#B4FFD0', dmgPct: 0.25, bind: 4,  desc: 'सर्प-पाश — शत्रु बंध जाता है।' },
+  bhoomi: { name: 'भूमि अस्त्र',  en: 'Bhoomi Astra', color: '#A9743A', glow: '#E0B072', dmgPct: 0.35, stun: 1.5, desc: 'धरती फटती है — रथ के पहिये जाम।' },
+  him:    { name: 'हिम अस्त्र',   en: 'Him Astra',    color: '#CFF4FF', glow: '#FFFFFF', dmgPct: 0.0,  desc: 'हिम-जाल — जो छूता है, जम जाता है।' }
+};
+
+// Ring definitions. decay = HP/sec passive drain. minutes = target duration (tuning only).
+export const RINGS = [
+  { id: 1, name: 'प्रथम चक्र', sub: 'बाह्य परिधि', boss: 'dushasana', useAstra: null,     earnAstra: 'vayu',   decay: 0.35, waves: [5, 7],  bpm: 84,  sky: ['#E9B35A', '#B5472D', '#2B1E2F'], ground: '#8C5A32', light: 0.0, minutes: 3 },
+  { id: 2, name: 'द्वितीय चक्र', sub: 'गदा-द्वार', boss: 'shalya',    useAstra: 'vayu',   earnAstra: 'agni',   decay: 0.45, waves: [6, 8],  bpm: 90,  sky: ['#D99A48', '#9E3B2A', '#261B2F'], ground: '#80522F', light: 0.1, minutes: 4 },
+  { id: 3, name: 'तृतीय चक्र', sub: 'बाण-भूलभुलैया', boss: 'lakshmana', useAstra: 'agni',   earnAstra: 'varun',  decay: 0.55, waves: [6, 9],  bpm: 96,  sky: ['#C98540', '#7E3028', '#211A30'], ground: '#73492D', light: 0.2, minutes: 4 },
+  { id: 4, name: 'चतुर्थ चक्र', sub: 'सूर्यपुत्र का द्वार', boss: 'karna', useAstra: 'varun',  earnAstra: 'naag',   decay: 0.7,  waves: [7, 9],  bpm: 104, sky: ['#B06B3A', '#5E2630', '#1B1A33'], ground: '#64412C', light: 0.35, minutes: 5 },
+  { id: 5, name: 'पंचम चक्र', sub: 'रथ-आँधी', boss: 'brihadbala', useAstra: 'naag',  earnAstra: 'bhoomi', decay: 0.85, waves: [8, 10], bpm: 112, sky: ['#8E5438', '#442036', '#171A36'], ground: '#563A2B', light: 0.5, minutes: 5 },
+  { id: 6, name: 'षष्ठ चक्र', sub: 'माया-द्वार', boss: 'kripa',    useAstra: 'bhoomi', earnAstra: 'him',    decay: 1.1,  waves: [8, 10], bpm: 120, sky: ['#5E3A44', '#2A1C3F', '#121636'], ground: '#48322C', light: 0.7, minutes: 6 },
+  { id: 7, name: 'सप्तम चक्र', sub: 'व्यूह-नाभि', boss: 'siege',    useAstra: 'him',    earnAstra: null,     decay: 0.0,  waves: [0, 0],  bpm: 132, sky: ['#3A2A4C', '#1B1F3B', '#0B0C14'], ground: '#3B2C2C', light: 0.9, minutes: 8 }
+];
+
+export const BOSSES = {
+  dushasana:  { name: 'दुःशासन', en: 'Dushasana', hp: 420, color: '#8B2E2E', accent: '#F4C95D', radius: 26, speed: 190, weapon: 'sword',
+                intro: 'दुःशासन: "बालक! तू अर्जुन-पुत्र है, इसलिए तुझे जीवित पकड़ूँगा।"',
+                defeat: 'दुःशासन मूर्छित होकर गिरा। (महाभारत में भी अभिमन्यु ने उसे मूर्छित किया था।)' },
+  shalya:     { name: 'शल्य', en: 'Shalya', hp: 560, color: '#5B4A8A', accent: '#D9A441', radius: 28, speed: 150, weapon: 'gada',
+                intro: 'शल्य: "मद्रराज की गदा का स्वाद चखो, कुमार!"',
+                defeat: 'शल्य का रथ टूटा, वह पीछे हटा। उसका भाई आगे बढ़ा और गिरा।' },
+  lakshmana:  { name: 'लक्ष्मण', en: 'Lakshmana (Duryodhana-putra)', hp: 520, color: '#2E6E8B', accent: '#F1E7D0', radius: 24, speed: 210, weapon: 'bow',
+                intro: 'लक्ष्मण: "अभिमन्यु! आज कौरव-कुमार और पांडव-कुमार का निर्णय होगा।"',
+                defeat: 'लक्ष्मण परास्त। दुर्योधन का क्रोध व्यूह की हर परत में गूँजा।' },
+  karna:      { name: 'कर्ण', en: 'Karna', hp: 700, color: '#C98A2A', accent: '#FFE8A3', radius: 28, speed: 175, weapon: 'bow', kavach: true,
+                intro: 'कर्ण: "मेरे कवच पर बाण व्यर्थ हैं, कुमार। पास आओ, तब जानूँ।"',
+                defeat: 'कर्ण घायल होकर रथ पर बैठ गया। वृषसेन उसे पीछे ले गया।' },
+  brihadbala: { name: 'बृहद्बल', en: 'Brihadbala (Kosala)', hp: 760, color: '#6B4A2B', accent: '#E0B072', radius: 34, speed: 240, weapon: 'chariot',
+                intro: 'बृहद्बल: "कोसल का रथ रुकता नहीं — हट जाओ या कुचले जाओ!"',
+                defeat: 'कोसल-नरेश का रथ पलटा। (महाभारत में अभिमन्यु ने उसे मारा था; यहाँ वह गिरा।)' },
+  kripa:      { name: 'कृप + अश्वत्थामा', en: 'Kripa & Ashwatthama', hp: 820, color: '#4A5A8B', accent: '#CFF4FF', radius: 26, speed: 200, weapon: 'maya',
+                intro: 'अश्वत्थामा: "माया में सत्य ढूँढो, अर्जुन-पुत्र!" कृप: "और मेरे बाणों से बचो।"',
+                defeat: 'माया छँटी। कृपाचार्य ने धनुष झुकाया — "यह बालक... द्रोण का शिष्य होता।"' },
+  durmasena:  { name: 'दुर्मसेन', en: 'Durmasena (Dushasana-putra)', hp: 900, color: '#3A1F2A', accent: '#FF3B3B', radius: 30, speed: 200, weapon: 'gada',
+                intro: 'दुर्मसेन: "पिता का बदला! गदा से तेरा सिर..."',
+                defeat: 'दुर्मसेन धराशायी। जिस गदा से इतिहास लिखा गया था, वह आज मिट्टी में है।' }
+};
+
+export const CHARACTERS = {
+  sanjaya:     { name: 'संजय', pitch: 0.95, rate: 0.92, color: '#F1E7D0' },
+  abhimanyu:   { name: 'अभिमन्यु', pitch: 1.2, rate: 1.02, color: '#F4C95D' },
+  yudhishthira:{ name: 'युधिष्ठिर', pitch: 0.9, rate: 0.9, color: '#CFF4FF' },
+  bhima:       { name: 'भीम', pitch: 0.6, rate: 0.95, color: '#FF7A2A' },
+  satyaki:     { name: 'सात्यकि', pitch: 0.85, rate: 1.0, color: '#5FD88A' },
+  drona:       { name: 'द्रोण', pitch: 0.7, rate: 0.88, color: '#D9A441' },
+  duryodhana:  { name: 'दुर्योधन', pitch: 0.75, rate: 1.05, color: '#B5472D' },
+  jayadratha:  { name: 'जयद्रथ', pitch: 0.8, rate: 1.0, color: '#8F6CFF' },
+  arjuna:      { name: 'अर्जुन', pitch: 0.9, rate: 0.95, color: '#7FE3FF' },
+  krishna:     { name: 'श्रीकृष्ण', pitch: 1.0, rate: 0.9, color: '#9FD3FF' },
+  agastya:     { name: 'महर्षि अगस्त्य', pitch: 0.65, rate: 0.85, color: '#E0B072' },
+  enemy:       { name: 'शत्रु', pitch: 0.7, rate: 1.0, color: '#FF3B3B' }
+};
+
+// Intro cinematic — scene list. Each scene: bg style, lines [{who, text}], duration auto from lines.
+export const INTRO = [
+  { bg: 'dawn', title: 'त्रयोदश दिवस — कुरुक्षेत्र', lines: [
+    { who: 'sanjaya', text: 'धृतराष्ट्र! तेरहवें दिन का सूर्य लहू-सा लाल उगा। कल द्रोण, युधिष्ठिर को बंदी बनाने में विफल रहे थे।' },
+    { who: 'duryodhana', text: 'आचार्य! आपने वचन दिया था। युधिष्ठिर अब तक मुक्त क्यों है?' },
+    { who: 'drona', text: 'जब तक अर्जुन युधिष्ठिर के पास है, दुर्योधन, कोई उसे छू नहीं सकता। अर्जुन को दूर करो — फिर देखो।' }
+  ]},
+  { bg: 'camp_kaurava', lines: [
+    { who: 'sanjaya', text: 'त्रिगर्त के संशप्तक आगे आए। उन्होंने अग्नि के सामने शपथ ली — अर्जुन को मारेंगे, या मरेंगे।' },
+    { who: 'sanjaya', text: 'उन्होंने अर्जुन को दक्षिण दिशा में युद्ध के लिए ललकारा। और अर्जुन... क्षत्रिय ललकार को टाल नहीं सकता।' },
+    { who: 'arjuna', text: 'केशव, रथ दक्षिण की ओर लो। युधिष्ठिर की रक्षा के लिए सात्यकि और भीम हैं। मैं संध्या से पहले लौटूँगा।' }
+  ]},
+  { bg: 'vyuha', lines: [
+    { who: 'sanjaya', text: 'अर्जुन के जाते ही द्रोण ने वह रचा जो कुरुक्षेत्र ने पहले नहीं देखा था — चक्रव्यूह। सात घूमती हुई परतें। हर परत में एक महारथी, हर द्वार पर मृत्यु।' },
+    { who: 'sanjaya', text: 'व्यूह घूमता था, और पांडव सेना उसके सामने घास की तरह कटती जा रही थी।' }
+  ]},
+  { bg: 'camp_pandava', lines: [
+    { who: 'yudhishthira', text: 'इस व्यूह को कौन तोड़ सकता है? अर्जुन दूर हैं, कृष्ण उनके साथ, प्रद्युम्न द्वारका में।' },
+    { who: 'abhimanyu', text: 'तात! मैं जानता हूँ। पिता ने माता को गर्भ में यह विद्या सुनाई थी — मैंने प्रवेश सीखा... पर निर्गमन नहीं। माता सो गई थीं, और पिता चुप हो गए थे।' },
+    { who: 'bhima', text: 'निर्गमन की चिंता मत कर, पुत्र! तू द्वार तोड़, हम तेरे पीछे घुसेंगे। मैं, सात्यकि, धृष्टद्युम्न — द्वार बंद नहीं होने देंगे।' },
+    { who: 'yudhishthira', text: 'यह मेरा वचन है, अभिमन्यु। तू अकेला नहीं जाएगा।' }
+  ]},
+  { bg: 'satyaki_memory', title: 'सात्यकि का स्मरण', lines: [
+    { who: 'sanjaya', text: 'उसी क्षण, सात्यकि को वर्षों पुराना एक वचन याद आया। विंध्य के पार, महर्षि अगस्त्य के आश्रम में बारह वर्ष की तपस्या के बाद —' },
+    { who: 'agastya', text: 'वृष्णि-वीर! तुझे एक सिद्धि देता हूँ — सूक्ष्म-गति। छाया में चल सकेगा, और जिसमें प्राण शेष हो उसमें प्राण लौटा सकेगा। पर शर्त यह है —' },
+    { who: 'agastya', text: 'इसे युद्ध में तब तक प्रयोग न करना जब तक धर्म की रक्षा किसी और उपाय से संभव हो। जिस दिन कोई और उपाय न रहे — उस दिन तू जानेगा।' },
+    { who: 'satyaki', text: '(स्वयं से) आज तक वह दिन नहीं आया था।' }
+  ]},
+  { bg: 'gate', lines: [
+    { who: 'sanjaya', text: 'अभिमन्यु का रथ व्यूह के द्वार पर टूट पड़ा। सोलह वर्ष का बालक — और द्वार खुल गया। पांडव-सेना ने जयघोष किया।' },
+    { who: 'jayadratha', text: 'रुको! शिव के वरदान से आज इस द्वार पर कोई पांडव नहीं जाएगा। आज जयद्रथ ही द्वार है!' },
+    { who: 'sanjaya', text: 'भीम की गदा, युधिष्ठिर के बाण — सब जयद्रथ पर व्यर्थ। द्वार अभिमन्यु के पीछे बंद होने लगा।' },
+    { who: 'satyaki', text: '(स्वयं से) वरदान पांडवों पर है। मैं पांडव नहीं हूँ... और आज कोई और उपाय नहीं बचा। महर्षि — वह दिन आ गया।' },
+    { who: 'sanjaya', text: 'और सात्यकि छाया बन गया। जयद्रथ की दृष्टि से परे, घूमती परत के बीच से, वह व्यूह में उतर गया — बिना किसी के जाने।' }
+  ]},
+  { bg: 'inside', title: 'अब इतिहास तुम्हारे हाथ में है', lines: [
+    { who: 'abhimanyu', text: 'पहली परत... दुःशासन का ध्वज। ठीक है। जो गर्भ में सुना था, वह आज रक्त में लिखूँगा।' }
+  ]}
+];
+
+export const RING_LINES = {
+  1: { drona: 'द्रोण: "दुःशासन! उसे जीवित चाहिए।"', after: 'संजय: "पहली परत टूटी। पीछे, छाया में, सात्यकि ने पहली व्यूह-नाभि गिरा दी — ताकि परत फिर बंद न हो।"' },
+  2: { drona: 'द्रोण: "शल्य, गदा से उसका रथ रोको।"', after: 'संजय: "दूसरी नाभि गिरी। व्यूह का घूमना एक पल को लड़खड़ाया — द्रोण ने देखा, पर कारण नहीं समझा।"' },
+  3: { drona: 'द्रोण: "लक्ष्मण! दुर्योधन का पुत्र होकर पीछे मत हटना।"', after: 'संजय: "तीसरी नाभि। अभिमन्यु थक रहा था — पर उसके बाण नहीं।"' },
+  4: { drona: 'द्रोण: "कर्ण! अब तुम्हारा कवच ही इस परत का द्वार है।"', after: 'संजय: "कर्ण घायल हुआ — और उसी क्षण उसने द्रोण से कहा: इसका धनुष पीछे से काटो, सामने से यह अजेय है।"' },
+  5: { drona: 'द्रोण: "बृहद्बल, रथ से कुचलो।"', after: 'संजय: "पाँचवीं नाभि। अब व्यूह आधा ही घूमता था। कौरव सेनापति एक-दूसरे को देख रहे थे।"' },
+  6: { drona: 'द्रोण: "अश्वत्थामा, पुत्र — माया रचो। कृप, तुम बाण।"', after: 'संजय: "छठी परत टूटी। विपत्ति सिर पर थी — और नाभि में छह महारथी प्रतीक्षा कर रहे थे।"' },
+  7: { drona: 'द्रोण: "अब... सब एक साथ।"', after: '' }
+};
+
+export const RING7 = {
+  siegeLines: [
+    { who: 'sanjaya', text: 'छह महारथी। द्रोण, कृप, कर्ण, अश्वत्थामा, बृहद्बल, कृतवर्मा — एक बालक पर, एक साथ। युद्ध-धर्म यहीं मरा।' },
+    { who: 'enemy', text: 'कर्ण: "पीछे से उसका धनुष काटो!"' },
+    { who: 'sanjaya', text: 'धनुष की डोरी कटी। सारथी गिरा। रथ के पहिये टूटे। अब केवल तलवार... और सोलह वर्ष का हृदय।' }
+  ],
+  fallLines: [
+    { who: 'sanjaya', text: 'दुर्मसेन गदा लेकर बढ़ा। अभिमन्यु घुटनों पर था। इतिहास में, यहीं कहानी समाप्त होती है।' },
+    { who: 'abhimanyu', text: '(धीमे) तात भीम... आपने कहा था... आप पीछे हैं...' },
+    { who: 'sanjaya', text: 'पर आज इतिहास नहीं — तुम लिख रहे हो। मित्र का स्मरण करो।' }
+  ],
+  satyakiEntry: [
+    { who: 'satyaki', text: 'अभिमन्यु! मैं यहाँ हूँ — वचन के अनुसार, तुम्हारे पीछे।' },
+    { who: 'satyaki', text: 'पहले इस गदाधारी को बाँधता हूँ। बाण-जाल!' }
+  ],
+  dronaRetreat: [
+    { who: 'drona', text: '(धीमे) एक बालक पर छह... और अब यह वृष्णि अकेला आया है। यह अधर्म है। कृप, कृतवर्मा — पीछे हटो। यह द्वंद्व उनका है।' }
+  ],
+  healLines: [
+    { who: 'satyaki', text: 'अगस्त्य का दूसरा वरदान — प्राण-संचार। उठो, कुमार। यह द्वंद्व देखो, लड़ो मत।' },
+    { who: 'abhimanyu', text: 'सात्यकि... आप कैसे...? ...कोई बात नहीं। आज मैं दर्शक हूँ।' }
+  ],
+  duelLines: [
+    { who: 'enemy', text: 'दुर्मसेन: "जाल टूटा! अब तू, यादव!"' }
+  ],
+  coreLines: [
+    { who: 'satyaki', text: 'नाभि-स्तंभ! हिम-अस्त्र से इसे जमाओ — मैं गदा से तोड़ता हूँ। साथ में!' },
+    { who: 'sanjaya', text: 'छह परतों की टूटी हुई नाभियाँ एक साथ ढह गईं। चक्रव्यूह ने घूमना बंद कर दिया। परतें... खुल गईं।' }
+  ]
+};
+
+export const EPILOGUE = [
+  { bg: 'sunset', lines: [
+    { who: 'sanjaya', text: 'संध्या। व्यूह की टूटी परतों से दो योद्धा बाहर निकले। और उनके पीछे — वह हज़ारों पांडव सैनिक, जो अभिमन्यु को बचाने घुसते और कभी न लौटते।' },
+    { who: 'bhima', text: '(पौण्ड्र शंख का नाद) कुरुक्षेत्र सुन ले! आज अभिमन्यु सबसे बड़ा महारथी है!' },
+    { who: 'sanjaya', text: 'उसी क्षण दक्षिण से एक रथ आया। संशप्तकों का संहार करके — अर्जुन और केशव।' },
+    { who: 'arjuna', text: 'पुत्र... (अभिमन्यु को गले लगाते हुए) मैंने निर्गमन नहीं सिखाया था।' },
+    { who: 'abhimanyu', text: 'सिखाने की आवश्यकता नहीं थी, पिता। मेरे पीछे एक मित्र था।' },
+    { who: 'krishna', text: '(मुस्कुराते हुए, सात्यकि की ओर) अगस्त्य ने ठीक दिन चुना, सात्यकि।' }
+  ]}
+];

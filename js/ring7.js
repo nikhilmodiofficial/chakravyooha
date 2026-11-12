@@ -1,0 +1,90 @@
+// Ring 7: scripted siege (unwinnable) -> Mitra Smaran -> Satyaki phases A (Bana-jaala) B (Prana-sanchar) C (duel) D (core shatter).
+import { RING7, CHARACTERS, BOSSES } from './config.js';
+import { Hero, Soldier, TAU, rnd, lerp } from './entities.js';
+import { Boss } from './bosses.js';
+
+const MAHARATHI = [
+  { name: 'द्रोण', color: '#D9A441', accent: '#FFFFFF', weapon: 'bow' }, { name: 'कृप', color: '#2E4A6B', accent: '#CFF4FF', weapon: 'bow' }, { name: 'कर्ण', color: '#C98A2A', accent: '#FFE8A3', weapon: 'bow' },
+  { name: 'अश्वत्थामा', color: '#4A5A8B', accent: '#CFF4FF', weapon: 'sword' }, { name: 'बृहद्बल', color: '#6B4A2B', accent: '#E0B072', weapon: 'sword' }, { name: 'कृतवर्मा', color: '#5B3A6B', accent: '#8F6CFF', weapon: 'sword' }
+];
+
+class Maharathi extends Soldier {
+  constructor(def, x, y, idx) { super(x, y, def.weapon === 'bow' ? 'archer' : 'melee', 1); this.def = def; this.color = def.color; this.name = def.name; this.r = 24; this.maxHp = 9999; this.hp = 9999; this.speed = 130; this.idx = idx; this.retreat = false; this.accent = def.accent; }
+  takeDamage(d, world, hit) { this.hurtT = 0.1; world.burst(this.x, this.y, '#FFFFFF', 4, 100, true); if (Math.random() < 0.15) world.floatText(this.x, this.y - 50, 'अभेद्य', '#FFFFFF'); }
+  update(dt, world) {
+    if (this.retreat) { const a = Math.atan2(this.y - world.arena.cy, this.x - world.arena.cx); const tx = world.arena.cx + Math.cos(a) * (world.arena.r - 40), ty = world.arena.cy + Math.sin(a) * (world.arena.r - 40); this.x = lerp(this.x, tx, 0.04); this.y = lerp(this.y, ty, 0.04); this.facing = Math.atan2(world.arena.cy - this.y, world.arena.cx - this.x); return; }
+    super.update(dt, world);
+  }
+}
+
+export class Ring7 {
+  constructor(world, game) { this.w = world; this.g = game; this.stage = 'siege'; this.t = 0; this.evT = 0; this.lineIdx = 0; this.abhi = world.heroes[0]; this.satyaki = null; this.boss = null; this.anchors = []; this.nodes = []; this.timer = 0; this.coreReady = false; this.corePress = { a: false, s: false, t: 0 }; this.done = false;
+    world.scripted = true; world.decayOn = false; world.phase = 'boss'; world.bossIntroT = 0; this.w.ring7 = this;
+    // six maharathis
+    MAHARATHI.forEach((d, i) => { const a = i / 6 * TAU - Math.PI / 2; const m = new Maharathi(d, world.arena.cx + Math.cos(a) * 300, world.arena.cy + Math.sin(a) * 300, i); world.enemies.push(m); });
+    this.maharathis = world.enemies.slice();
+    world.onHeroDown = h => { if (h === this.abhi && this.stage === 'siege') { h.alive = true; h.hp = 0; h.state = 'fallen'; this.fall(); } else if (h === this.satyaki) { this.satyakiDown(); } };
+    this.g.ui.setObjective('छह महारथी। बचो... जितना हो सके।');
+    this.speak(RING7.siegeLines[0]);
+  }
+  speak(line) { if (!line) return; const c = CHARACTERS[line.who]; this.g.ui.say(c.name, line.text, c.color); this.g.voice.say(line.who, line.text); this.g.netSay(line); }
+  update(dt, intents) {
+    this.t += dt; this.evT += dt;
+    if (this.stage === 'siege') {
+      // escalating scripted breakdown
+      if (this.t > 14 && !this._e1) { this._e1 = true; this.speak(RING7.siegeLines[1]); }
+      if (this.t > 22 && !this.abhi.weaponsBroken.bow) { this.abhi.weaponsBroken.bow = true; this.abhi.charging = false; this.g.ui.toast('धनुष की डोरी कटी!', 2500); this.w.audio.sfx('shatter'); this.w.shake(10); }
+      if (this.t > 38 && !this.abhi.weaponsBroken.gada) { this.abhi.weaponsBroken.gada = true; this.g.ui.toast('रथ टूटा। गदा गिरी।', 2500); this.w.audio.sfx('rumble'); this.w.shake(10); this.speak(RING7.siegeLines[2]); }
+      if (this.t > 30) this.abhi.hp -= dt * (this.t > 50 ? 4 : 1.5); // the siege is unwinnable by design
+      if (this.abhi.hp <= 0 && this.abhi.state !== 'fallen') { this.abhi.hp = 0; this.abhi.state = 'fallen'; this.fall(); }
+      for (const m of this.maharathis) m.speed = 130 + this.t * 1.5;
+    }
+    else if (this.stage === 'fallen') { /* waiting for Mitra Smaran */ this.abhi.state = 'fallen'; }
+    else if (this.stage === 'A') {
+      this.timer -= dt; this.g.ui.setObjective('बाण-जाल: तीन चमकते बिंदुओं पर बाण मारो  ' + this.anchors.filter(a => a.lit).length + '/3   ⏳ ' + Math.ceil(this.timer));
+      for (const p of this.w.projectiles) if (p.team === 'pandava') for (const a of this.anchors) if (!a.lit && Math.hypot(p.x - a.x, p.y - a.y) < 34) { a.lit = true; p.alive = false; this.w.audio.sfx('bind'); this.w.burst(a.x, a.y, '#7FE3FF', 20, 200, true); this.w.floatText(a.x, a.y - 30, 'बद्ध!', '#7FE3FF'); }
+      // Durmasena stalks Abhimanyu slowly
+      const b = this.boss; const a = Math.atan2(this.abhi.y - b.y, this.abhi.x - b.x); b.facing = a; b.x += Math.cos(a) * 18 * dt; b.y += Math.sin(a) * 18 * dt;
+      if (this.anchors.every(x => x.lit)) this.toB();
+      else if (this.timer <= 0) { this.g.ui.toast('दुर्मसेन की गदा उठी — पुनः प्रयास!', 2200); this.resetA(); }
+    }
+    else if (this.stage === 'B') {
+      this.timer -= dt; const next = this.nodes.find(n => !n.hit); this.g.ui.setObjective('प्राण-संचार: मंत्र-चक्र के ' + (8 - this.nodes.filter(n => n.hit).length) + ' बिंदु क्रम से पार करो  ⏳ ' + Math.ceil(this.timer));
+      if (next && Math.hypot(this.satyaki.x - next.x, this.satyaki.y - next.y) < 30) { next.hit = true; this.w.audio.sfx('pickup'); this.w.burst(next.x, next.y, '#B4FFD0', 14, 160, true); this.abhi.hp = Math.min(this.abhi.maxHp * 0.5, this.abhi.hp + this.abhi.maxHp * 0.0625); }
+      if (!next) this.toC(); else if (this.timer <= 0) { this.g.ui.toast('जाल टूट गया — पहले बाँधो!', 2200); this.resetA(); }
+    }
+    else if (this.stage === 'C') { this.abhi.x = lerp(this.abhi.x, this.w.arena.cx - 300, 0.03); this.abhi.y = lerp(this.abhi.y, this.w.arena.cy + 200, 0.03); this.abhi.invuln = 1; if (this.boss && !this.boss.alive && !this.coreReady) this.toD(); }
+    else if (this.stage === 'D') {
+      const n = this.w.nabhi; const near = h => h && Math.hypot(h.x - n.x, h.y - n.y) < 110;
+      const ia = intents[0] || {}, is = intents[1] || {};
+      if (near(this.abhi) && (ia.astra || ia.act)) { this.corePress.a = true; this.corePress.t = 3; this.w.floatText(this.abhi.x, this.abhi.y - 50, 'हिम-अस्त्र!', '#CFF4FF'); }
+      if (near(this.satyaki) && (is.astra || is.act || is.gada)) { this.corePress.s = true; this.corePress.t = 3; this.w.floatText(this.satyaki.x, this.satyaki.y - 50, 'गदा!', '#B4FFD0'); }
+      if (this.g.coop.mode === 'hotseat' && this.corePress.s) this.corePress.a = true; // one person plays both: one press is both
+      this.corePress.t -= dt; if (this.corePress.t <= 0) { this.corePress.a = this.corePress.s = false; }
+      this.g.ui.setObjective('नाभि-स्तंभ के पास जाओ। अभिमन्यु: अस्त्र (U)  ' + (this.corePress.a ? '✓' : '…') + '   सात्यकि: गदा (L)  ' + (this.corePress.s ? '✓' : '…'));
+      if (this.corePress.a && this.corePress.s && !this.done) this.shatter();
+    }
+    this.abhi.invuln = this.stage === 'siege' ? this.abhi.invuln : 1; if (this.stage === 'C' || this.stage === 'D') { this.abhi.vx = this.abhi.vy = 0; }
+  }
+  fall() { this.stage = 'fallen'; this.abhi.state = 'fallen'; this.w.slowT = 2.5; this.w.audio.playMusic('none'); this.w.audio.sfx('die'); this.w.shake(16); for (const m of this.maharathis) { m.retreat = true; } this.g.ui.setObjective(''); this.g.onFallen(); }
+  // ---- Satyaki enters
+  startCoop(satyaki) {
+    this.satyaki = satyaki; satyaki.x = this.w.arena.cx; satyaki.y = this.w.arena.cy + 360; this.w.heroes.push(satyaki); this.w.decayOn = false;
+    for (const m of this.maharathis) m.retreat = true;
+    this.boss = new Boss('durmasena', this.w.arena.cx, this.w.arena.cy - 60, this.w); this.boss.invuln = true; this.boss.move = null; this.w.boss = this.boss; this.w.bossIntroT = 0;
+    this.w.burst(satyaki.x, satyaki.y, '#5FD88A', 40, 300, true); this.w.audio.sfx('naag'); this.w.audio.playMusic('siege', 132);
+    this.speak(RING7.satyakiEntry[0]); setTimeout(() => this.speak(RING7.satyakiEntry[1]), 3500);
+    this.resetA();
+  }
+  resetA() { this.stage = 'A'; this.timer = 30; this.anchors = [0, 1, 2].map(i => { const a = i / 3 * TAU + 0.5; return { x: this.boss.x + Math.cos(a) * 95, y: this.boss.y + Math.sin(a) * 95, lit: false }; }); this.boss.x = this.w.arena.cx; this.boss.y = this.w.arena.cy - 60; this.boss.stun = 0; this.boss.bound = 0; this.boss.invuln = true; this.boss.move = null; this.abhi.x = this.w.arena.cx; this.abhi.y = this.w.arena.cy + 140; this.satyaki.hp = this.satyaki.maxHp; this.satyaki.alive = true; this.satyaki.state = 'idle'; this.w.extraDraw = this.anchorDraw(); }
+  anchorDraw() { return [{ y: -1e9, custom: (ctx, t) => { for (const a of this.anchors) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a.lit ? 0.9 : 0.5 + 0.4 * Math.sin(t * 6); ctx.strokeStyle = a.lit ? '#7FE3FF' : '#FFFFFF'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(a.x, a.y, 24 + Math.sin(t * 4) * 3, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(a.x, a.y, 6, 0, TAU); ctx.fillStyle = ctx.strokeStyle; ctx.fill(); ctx.restore(); } if (this.anchors.some(a => a.lit)) { ctx.save(); ctx.strokeStyle = '#7FE3FF'; ctx.lineWidth = 2; ctx.globalAlpha = 0.8; const lit = this.anchors.filter(a => a.lit); for (let i = 0; i < lit.length; i++) for (let j = i + 1; j < lit.length; j++) { ctx.beginPath(); ctx.moveTo(lit[i].x, lit[i].y); for (let k = 1; k <= 8; k++) { const u = k / 8; ctx.lineTo(lerp(lit[i].x, lit[j].x, u) + rnd(-6, 6), lerp(lit[i].y, lit[j].y, u) + rnd(-6, 6)); } ctx.stroke(); } ctx.restore(); } for (const n of this.nodes) { if (n.hit) continue; const first = this.nodes.find(x => !x.hit) === n; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = first ? 0.9 : 0.35; ctx.fillStyle = first ? '#B4FFD0' : '#5FD88A'; ctx.beginPath(); ctx.arc(n.x, n.y, first ? 14 + Math.sin(t * 8) * 3 : 9, 0, TAU); ctx.fill(); ctx.font = '14px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(n.i + 1, n.x, n.y + 5); ctx.restore(); } } }]; }
+  toB() { this.stage = 'B'; this.timer = 22; this.boss.bound = 99; this.boss.invuln = true; this.w.audio.sfx('bind'); this.w.flash = 0.6; this.speak(RING7.dronaRetreat[0]); setTimeout(() => this.speak(RING7.healLines[0]), 5000);
+    this.nodes = [...Array(8)].map((_, i) => { const a = i / 8 * TAU - Math.PI / 2; return { i, x: this.abhi.x + Math.cos(a) * 90, y: this.abhi.y + Math.sin(a) * 90, hit: false }; }); }
+  toC() { this.stage = 'C'; this.nodes = []; this.anchors = []; this.w.extraDraw = null; this.abhi.hp = Math.max(this.abhi.hp, this.abhi.maxHp * 0.5); this.abhi.state = 'idle'; this.w.audio.sfx('heal'); this.w.burst(this.abhi.x, this.abhi.y, '#B4FFD0', 30, 220, true); this.speak(RING7.healLines[1]);
+    setTimeout(() => { this.boss.bound = 0; this.boss.invuln = false; this.boss.stun = 0.5; this.w.audio.sfx('shatter'); this.w.shake(12); this.speak(RING7.duelLines[0]); this.g.ui.setObjective('द्वंद्व: सात्यकि बनाम दुर्मसेन'); this.g.ui.toast('दुर्मसेन मुक्त! अब द्वंद्व।', 2500); }, 4000); }
+  satyakiDown() { if (this.stage !== 'C') return; this.w.audio.sfx('die'); this.g.ui.toast('सात्यकि गिरा — द्वंद्व पुनः (0.5 s)', 1800); setTimeout(() => { this.satyaki.hp = this.satyaki.maxHp; this.satyaki.alive = true; this.satyaki.state = 'idle'; this.satyaki.x = this.w.arena.cx; this.satyaki.y = this.w.arena.cy + 300; this.boss.hp = Math.min(this.boss.maxHp, this.boss.hp + this.boss.maxHp * 0.25); this.boss.rage = false; this.boss.move = null; }, 500); }
+  toD() { this.stage = 'D'; this.coreReady = true; this.w.phase = 'boss'; this.w.nabhi = { x: this.w.arena.cx, y: this.w.arena.cy - 40, hp: 1, maxHp: 1 }; this.abhi.astra = 'him'; this.abhi.astraUsed = false; this.w.audio.sfx('unlock'); this.speak(RING7.coreLines[0]); this.g.ui.toast('नाभि-स्तंभ प्रकट! दोनों पास जाओ।', 3000); }
+  shatter() { this.done = true; this.w.astraFx = { key: 'him', t: 0, dur: 3, x: this.abhi.x, y: this.abhi.y, tx: this.w.nabhi.x, ty: this.w.nabhi.y, color: '#CFF4FF', glow: '#FFFFFF' }; this.w.audio.sfx('him'); this.w.slowT = 2.5; this.w.flash = 1;
+    setTimeout(() => { this.w.audio.sfx('shatter'); this.w.audio.sfx('rumble'); this.w.shake(30); this.w.nabhi.hp = 0; this.w.burst(this.w.nabhi.x, this.w.nabhi.y - 60, '#FFFFFF', 80, 400, true); this.speak(RING7.coreLines[1]); }, 1800);
+    setTimeout(() => this.g.onVictory(), 6500); }
+}

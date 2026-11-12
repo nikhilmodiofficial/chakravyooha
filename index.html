@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://0.peerjs.com wss://0.peerjs.com https://*.peerjs.com wss://*.peerjs.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
+<meta name="referrer" content="no-referrer">
+<title>चक्रव्यूह — Rewriting the Epic</title>
+<meta name="description" content="Day 13, Kurukshetra. Abhimanyu enters the Chakravyuha. This time, history changes. A zero-install browser game.">
+<meta property="og:title" content="चक्रव्यूह — Rewriting the Epic">
+<meta property="og:description" content="Break the seven rings as Abhimanyu. Call a friend as Satyaki at the seventh gate.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%231B1F3B'/%3E%3Ccircle cx='32' cy='32' r='22' fill='none' stroke='%23F4C95D' stroke-width='3' stroke-dasharray='8 5'/%3E%3Ccircle cx='32' cy='32' r='12' fill='none' stroke='%23B5472D' stroke-width='3' stroke-dasharray='6 4'/%3E%3Ccircle cx='32' cy='32' r='4' fill='%23F4C95D'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Hindi&family=Noto+Serif+Devanagari:wght@400;700&family=Cinzel:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div class="top">
+    <div class="ring"><div id="ring-name">प्रथम चक्र</div><div id="ring-sub"></div></div>
+    <div id="objective"></div>
+    <div id="timer">0:00</div>
+  </div>
+  <div class="hp-wrap"><div class="hp-frame"><div id="hp-fill"></div></div><div id="hp-text">100 / 100</div></div>
+  <div id="p2" class="hidden"><div class="p2-frame"><div id="p2-fill"></div></div><div class="p2-lbl">साथी</div></div>
+  <div id="boss-bar" class="hidden"><div id="boss-name"></div><div class="boss-frame"><div id="boss-fill"></div><div class="half"></div></div></div>
+  <div id="btn-astra" class="hidden"><span class="lbl"></span><span class="st"></span></div>
+</div>
+
+<div id="vipatti">विपत्ति</div>
+<div id="banner" class="hidden"><span class="who"></span><span class="txt"></span></div>
+<div id="toast"></div>
+
+<div id="cine" class="hidden">
+  <div id="cine-title" class="hidden"></div>
+  <div id="skip"><div id="skip-hint"></div><div class="skip-bar"><div id="skip-fill"></div></div></div>
+</div>
+<div id="subtitle" class="hidden"><div class="who"></div><div class="txt"></div></div>
+
+<div id="touch" class="hidden">
+  <div id="btn-skip" class="tbtn skip">छोड़ें</div>
+  <div class="pad">
+    <div id="btn-bow" class="tbtn bow">धनुष</div>
+    <div id="btn-sword" class="tbtn sword">तलवार</div>
+    <div id="btn-gada" class="tbtn gada">गदा</div>
+    <div id="btn-dodge" class="tbtn dodge">छलांग</div>
+  </div>
+</div>
+
+<div id="menu" class="hidden"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
