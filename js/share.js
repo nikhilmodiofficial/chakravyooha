@@ -1,5 +1,6 @@
 // Share card (canvas -> PNG) + WhatsApp / Web Share helpers.
 import { PALETTE } from './config.js';
+import { tr } from './i18n.js';
 export function fmtTime(s) { const m = Math.floor(s / 60), r = Math.floor(s % 60); return m + ':' + (r < 10 ? '0' : '') + r; }
 export function renderCard({ title, line1, line2, line3, url }) {
   const c = document.createElement('canvas'); c.width = 1080; c.height = 1350; const x = c.getContext('2d');
@@ -13,6 +14,7 @@ export function renderCard({ title, line1, line2, line3, url }) {
   return c;
 }
 export async function shareCard(canvas, text, url) {
+  text = tr(text);
   const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
   const file = blob ? new File([blob], 'chakravyooh.png', { type: 'image/png' }) : null;
   if (navigator.share && file && navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], text, url }); return 'shared'; } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; } }
@@ -20,4 +22,4 @@ export async function shareCard(canvas, text, url) {
   window.open('https://wa.me/?text=' + encodeURIComponent(text + ' ' + url), '_blank', 'noopener'); return 'wa';
 }
 export function downloadCard(canvas) { const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = 'chakravyooh.png'; a.click(); }
-export function whatsappLink(text) { return 'https://wa.me/?text=' + encodeURIComponent(text); }
+export function whatsappLink(text) { return 'https://wa.me/?text=' + encodeURIComponent(tr(text)); }

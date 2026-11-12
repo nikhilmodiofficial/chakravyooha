@@ -39,6 +39,7 @@ export class Ring7 {
       // escalating scripted breakdown
       if (this.t > 14 && !this._e1) { this._e1 = true; this.speak(RING7.siegeLines[1]); }
       if (this.t > 22 && !this.abhi.weaponsBroken.bow) { this.abhi.weaponsBroken.bow = true; this.abhi.charging = false; this.g.ui.toast('धनुष की डोरी कटी!', 2500); this.w.audio.sfx('shatter'); this.w.shake(10); }
+      if (this.t > 30 && !this.abhi.shieldBroken) { this.abhi.shieldBroken = true; this.abhi.blocking = false; this.g.ui.toast(document.documentElement.lang === 'en' ? 'The shield splits!' : 'ढाल टूटी!', 2500); this.w.audio.sfx('shatter'); this.w.shake(8); }
       if (this.t > 38 && !this.abhi.weaponsBroken.gada) { this.abhi.weaponsBroken.gada = true; this.g.ui.toast('रथ टूटा। गदा गिरी।', 2500); this.w.audio.sfx('rumble'); this.w.shake(10); this.speak(RING7.siegeLines[2]); }
       if (this.t > 30) this.abhi.hp -= dt * (this.t > 50 ? 4 : 1.5); // the siege is unwinnable by design
       if (this.abhi.hp <= 0 && this.abhi.state !== 'fallen') { this.abhi.hp = 0; this.abhi.state = 'fallen'; this.fall(); }
@@ -62,7 +63,7 @@ export class Ring7 {
     else if (this.stage === 'W0') { // walk to the wreck and lift the wheel
       const wk = this.wreck; const near = Math.hypot(this.abhi.x - wk.x, this.abhi.y - wk.y) < 90; const ia = intents[0] || {};
       this.g.ui.setObjective(near ? 'रथ-चक्र उठाओ — E / अस्त्र बटन' : 'टूटे रथ के पास जाओ — पहिया उठाओ');
-      if (near && (ia.astra || ia.act)) { this.abhi.chakra = true; this.abhi.hp = Math.max(this.abhi.hp, this.abhi.maxHp * 0.6); this.w.audio.sfx('unlock'); this.w.burst(wk.x, wk.y, '#F4C95D', 30, 260, true); this.w.flash = 0.5; this.stage = 'W1'; this.speak(RING7.chakraLines[0]); setTimeout(() => this.speak(RING7.chakraLines[1]), 4200); this.g.ui.toast('रथ-चक्र: तलवार-बटन = चक्र-घुमाव (चारों ओर धक्का) · गदा-बटन = चक्र-प्रहार', 5000); }
+      if (near && (ia.astra || ia.act)) { this.abhi.chakra = true; this.abhi.hp = Math.max(this.abhi.hp, this.abhi.maxHp * 0.6); this.w.audio.sfx('unlock'); this.w.burst(wk.x, wk.y, '#F4C95D', 30, 260, true); this.w.flash = 0.5; this.stage = 'W1'; this.speak(RING7.chakraLines[0]); setTimeout(() => this.speak(RING7.chakraLines[1]), 4200); this.g.ui.toast('रथ-चक्र: वार = चक्र-घुमाव (चारों ओर धक्का) · बदलो = चक्र-प्रहार', 5000); }
       if (this.abhi.hp < this.abhi.maxHp * 0.15) this.abhi.hp = this.abhi.maxHp * 0.15; // scripted pressure, not a fail state
     }
     else if (this.stage === 'W1') { const left = this.encirclers.filter(m => !m.retreat).length + this.w.enemies.filter(e => e.alive && !e.def).length; this.g.ui.setObjective('घेरा तोड़ो: चक्र से सबको पीछे धकेलो  (' + left + ' शेष)'); if (left === 0) this.toK(); if (this.abhi.hp < this.abhi.maxHp * 0.1) this.abhi.hp = this.abhi.maxHp * 0.1; }
@@ -82,7 +83,7 @@ export class Ring7 {
       if (near(this.satyaki) && (is.astra || is.act || is.gada)) { this.corePress.s = true; this.corePress.t = 3; this.w.floatText(this.satyaki.x, this.satyaki.y - 50, 'गदा!', '#B4FFD0'); }
       if (this.g.coop.mode !== 'host') { this.satyaki.x = lerp(this.satyaki.x, n.x + 70, 0.04); this.satyaki.y = lerp(this.satyaki.y, n.y + 60, 0.04); if (this.corePress.a) this.corePress.s = true; } // solo/hot-seat: Satyaki walks in on his own; one press is both
       this.corePress.t -= dt; if (this.corePress.t <= 0) { this.corePress.a = this.corePress.s = false; }
-      this.g.ui.setObjective('नाभि-स्तंभ के पास जाओ। अभिमन्यु: अस्त्र (U)  ' + (this.corePress.a ? '✓' : '…') + '   सात्यकि: गदा (L)  ' + (this.corePress.s ? '✓' : '…'));
+      this.g.ui.setObjective('नाभि-स्तंभ के पास जाओ। अभिमन्यु: अस्त्र (E)  ' + (this.corePress.a ? '✓' : '…') + '   सात्यकि: वार  ' + (this.corePress.s ? '✓' : '…'));
       if (this.corePress.a && this.corePress.s && !this.done) this.shatter();
     }
     if (['W0', 'W1', 'K', 'W1b', 'W2'].includes(this.stage)) { this.satyaki.state = 'bound'; this.satyaki.invuln = 1; this.satyaki.stateT = 9; }

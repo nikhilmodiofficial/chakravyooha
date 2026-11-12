@@ -178,3 +178,49 @@ body, .hm-blurb, .char-bio, .astra-desc, .how-d, #subtitle .txt, #banner { font-
 .hm-grid .tile.settings:hover .ic { transform:rotate(45deg); }
 .hm-grid .tile { justify-content:flex-start !important; }
 .hm-grid .tile .ns { line-height:1.3; }
+
+/* astra / divya-shakti button: conic progress ring */
+#btn-astra { --p:0; --c:#F4C95D; background:radial-gradient(circle at 40% 35%, #262a44, #0b0c14 70%); border:none; box-shadow:0 0 0 3px #000; color:var(--bone); }
+#btn-astra::before { content:""; position:absolute; inset:-4px; border-radius:50%; background:conic-gradient(var(--c) calc(var(--p) * 360deg), rgba(255,255,255,.12) 0); -webkit-mask:radial-gradient(circle, transparent 58%, #000 60%); mask:radial-gradient(circle, transparent 58%, #000 60%); }
+#btn-astra .lbl { font-family:var(--display); font-size:15px; color:var(--c); } #btn-astra .st { font-size:10.5px; line-height:1.2; padding:0 6px; }
+#btn-astra.ready { background:radial-gradient(circle at 40% 35%, color-mix(in srgb, var(--c) 70%, #fff), #B5472D 72%); color:#1a0a05; box-shadow:0 0 26px var(--c), 0 0 0 3px #000; }
+#btn-astra.ready .lbl { color:#1a0a05; }
+#btn-astra.big { animation:glow .7s infinite alternate; }
+.tbtn.jump { right:0; bottom:-4px; width:56px; height:56px; font-size:13px; } .tbtn.dodge { right:-62px; bottom:52px; width:48px; height:48px; font-size:12px; }
+#touch .pad { right:72px; }
+
+/* controls v3: weapon HUD + touch pad */
+#weapons { position:absolute; left:14px; bottom:calc(max(16px, env(safe-area-inset-bottom)) + 44px); display:flex; gap:6px; pointer-events:none; }
+#weapons .wslot { position:relative; width:52px; height:36px; border:1px solid rgba(217,164,65,.35); border-radius:6px; background:rgba(11,12,20,.6); opacity:.55; transition:all .15s; }
+#weapons .wslot canvas { width:52px; height:35px; }
+#weapons .wslot .wk { position:absolute; right:3px; top:1px; font:600 10px/1 Mukta, sans-serif; color:var(--bone); opacity:.8; }
+#weapons .wslot.on { opacity:1; border-color:var(--gold); box-shadow:0 0 12px rgba(244,201,93,.45); transform:translateY(-3px); }
+#weapons .wslot.broken { opacity:.25; filter:grayscale(1); } #weapons .wslot.broken::after { content:""; position:absolute; left:6px; right:6px; top:50%; height:2px; background:#c41e1e; transform:rotate(-20deg); }
+#touch .pad { right:16px; bottom:max(18px, env(safe-area-inset-bottom)); width:200px; height:190px; }
+.tbtn.attack { right:0; bottom:44px; width:86px; height:86px; font-size:17px; font-weight:700; border-color:var(--gold); background:rgba(181,71,45,.6); }
+.tbtn.block { right:96px; bottom:96px; width:60px; height:60px; } .tbtn.switch { right:96px; bottom:20px; width:56px; height:56px; font-size:13px; }
+.tbtn.jump { right:4px; bottom:-10px; width:52px; height:44px; border-radius:22px; font-size:13px; }
+@media (max-width:700px) { #weapons { bottom:calc(max(16px, env(safe-area-inset-bottom)) + 40px); } #weapons .wslot { width:42px; height:30px; } #weapons .wslot canvas { width:42px; height:28px; } }
+
+/* home v3: sub-page slim hero, animated vyooha, chapters */
+.hm-hero { isolation:isolate; } .hm-hero img { opacity:.55; } .hm-vyooha { position:absolute; inset:0; width:100%; height:100%; z-index:1; } .hm-hero-shade { z-index:2; } .hm-brand { z-index:3; }
+.hm.sub { grid-template-columns:minmax(220px, 26vw) 1fr; }
+.hm.sub .hm-title { font-size:clamp(44px, 5vw, 76px); } .hm.sub .hm-brand { left:10%; bottom:7%; } .hm.sub .hm-tag { letter-spacing:3px; font-size:12px; }
+.hm.sub .hm-col { padding-left:clamp(20px, 4vw, 56px); padding-right:clamp(20px, 4vw, 56px); }
+.hm.sub .hm-body { max-width:980px; }
+@media (max-width:900px) { .hm.sub { grid-template-rows:96px 1fr; } .hm.sub .hm-hero { min-height:96px; } .hm.sub .hm-brand { bottom:12px; left:16px; } .hm.sub .hm-title { font-size:40px; } .hm.sub .hm-tag, .hm.sub .kicker { display:none; } }
+.chapter { display:grid; grid-template-columns:150px 1fr; gap:16px; background:linear-gradient(180deg, rgba(27,31,59,.55), rgba(11,12,20,.6)); border:1px solid rgba(217,164,65,.28); border-radius:10px; overflow:hidden; }
+.ch-art { background:#14172a; } .ch-art img, .ch-art canvas { width:100%; height:100%; min-height:170px; object-fit:cover; display:block; }
+.ch-text { padding:14px 16px 14px 0; } .ch-text h3 { margin:2px 0 6px; } .ch-sum { margin:0; font-size:16px; line-height:1.6; color:var(--bone); }
+.ch-more { margin-top:10px; font:600 14px var(--hindi); color:var(--gold); background:none; border:1px solid rgba(217,164,65,.45); border-radius:16px; padding:5px 14px; cursor:pointer; } .ch-more:hover { background:rgba(244,201,93,.12); }
+.ch-scene { margin-top:10px; padding:10px 12px; border-left:2px solid rgba(217,164,65,.5); background:rgba(0,0,0,.25); border-radius:0 6px 6px 0; } .ch-scene p { margin:6px 0; font-size:14.5px; line-height:1.55; }
+.hm-nav.watch { flex-direction:row; justify-content:flex-start; gap:12px; text-align:left; } .hm-nav.watch .ic { width:38px; height:38px; color:var(--gold); }
+.astra-god { font-family:var(--latin); letter-spacing:2px; font-size:11px; text-transform:uppercase; color:var(--ochre); }
+.char-card.hero { border-color:rgba(244,201,93,.6); box-shadow:0 0 0 1px rgba(244,201,93,.15), 0 10px 30px rgba(0,0,0,.35); }
+.hm-nav:focus-visible, .hm-play:focus-visible, .hm-back:focus-visible, .hm-lang:focus-visible, .ch-more:focus-visible, .set-row:focus-visible, .seg-b:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+@media (max-width:600px) { .chapter { grid-template-columns:1fr; } .ch-art img, .ch-art canvas { min-height:0; height:150px; } .ch-text { padding:12px 14px; } }
+
+@media (max-width:900px) { .hm.sub { grid-template-columns:1fr; grid-template-rows:84px 1fr; } .hm.sub .hm-hero { min-height:84px; } .hm.sub .hm-col { padding:14px 16px 24px; } }
+.hm-back { white-space:nowrap; } .hm-sechead { flex-wrap:nowrap; } .hm-h2 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.keys { display:grid !important; grid-template-columns:auto 1fr; gap:6px 10px; align-items:center; } .keys .key { justify-self:start; white-space:nowrap; } .keys .how-d { margin:0; }
+.story-num { font-size:13px !important; color:var(--gold) !important; letter-spacing:3px; margin-bottom:6px; }

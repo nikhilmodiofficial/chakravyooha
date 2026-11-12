@@ -14,44 +14,67 @@ export class Hero {
     this.cfg = kind === 'satyaki' ? SATYAKI : PLAYER;
     this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.r = this.cfg.radius;
     this.hp = this.cfg.maxHp; this.maxHp = this.cfg.maxHp; this.facing = -Math.PI / 2; this.aim = this.facing;
-    this.state = 'idle'; this.stateT = 0; this.cd = { sword: 0, bow: 0, gada: 0, dodge: 0 };
+    this.state = 'idle'; this.stateT = 0; this.cd = { sword: 0, bow: 0, gada: 0, dodge: 0, jump: 0 };
     this.combo = 0; this.comboT = 0; this.charge = 0; this.charging = false; this.invuln = 0; this.hurtT = 0;
     this.team = 'pandava'; this.alive = true; this.weaponsBroken = { bow: false, gada: false }; this.astra = null; this.astraUsed = false;
-    this.stats = { hits: 0, dmg: 0, dodges: 0, shards: 0 }; this.chakra = false; this.arrows = kind === 'satyaki' ? 40 : 30; this.maxArrows = kind === 'satyaki' ? 40 : 30; this.noArrowT = 0; this.lastAttackDir = this.facing; this.walkT = 0;
+    this.stats = { hits: 0, dmg: 0, dodges: 0, shards: 0 }; this.chakra = false; this.arrows = kind === 'satyaki' ? 55 : 45; this.maxArrows = kind === 'satyaki' ? 55 : 45; this.weapon = 'sword'; this.blocking = false; this.blockT = 0; this.shieldBroken = false; this.shakti = 0; this.shaktiMax = 100; this.regenWait = 0; this.z = 0; this.noArrowT = 0; this.lastAttackDir = this.facing; this.walkT = 0;
   }
   takeDamage(d, world, src) {
-    if (!this.alive || this.invuln > 0 || this.state === 'dodge') return false;
-    this.streak = 0; this.hp -= d; this.hurtT = 0.25; this.invuln = 0.35; world.audio.sfx('hurt'); world.shake(Math.min(12, d * 0.6)); world.hurtFlash = Math.min(1, 0.35 + d * 0.03); world.floatText(this.x, this.y - 56, '-' + Math.round(d), '#FF5A3B');
+    if (!this.alive || this.invuln > 0 || this.state === 'dodge' || (this.state === 'jump' && this.z > 6)) return false;
+    d *= 0.6;
+    if (this.blocking && src) { const a = src.vx !== undefined && (src.vx || src.vy) ? Math.atan2(-src.vy, -src.vx) : Math.atan2(src.y - this.y, src.x - this.x); if (Math.abs(angDiff(this.facing, a)) < 1.15) { const perfect = this.blockT < 0.22; world.audio.sfx('clash'); world.burst(this.x + Math.cos(this.facing) * 22, this.y - 14 + Math.sin(this.facing) * 22, '#FFE8A3', perfect ? 18 : 8, perfect ? 240 : 140, true);
+      if (perfect) { world.floatText(this.x, this.y - 60, world.lang === 'en' ? 'Perfect block!' : 'सटीक रोक!', '#FFE8A3'); const o = src.owner && src.owner.alive ? src.owner : (src.alive ? src : null); if (o && o.team === 'kaurava') { if (o.isBoss) o.stun = Math.max(o.stun || 0, 0.9); else o.stun = Math.max(o.stun || 0, 1.3); } if (this.shakti !== undefined) this.shakti = Math.min(this.shaktiMax, this.shakti + 6); this.invuln = 0.2; return false; }
+      d *= 0.15; this.vx -= Math.cos(this.facing) * 60; this.vy -= Math.sin(this.facing) * 60; if (d < 0.5) return false; } }
+    this.regenWait = 4; this.streak = 0; this.hp -= d; this.hurtT = 0.25; this.invuln = 0.35; world.audio.sfx('hurt'); world.shake(Math.min(12, d * 0.6)); world.hurtFlash = Math.min(1, 0.35 + d * 0.03); world.floatText(this.x, this.y - 56, '-' + Math.round(d), '#FF5A3B');
     world.blood(this.x, this.y, src ? src.x : this.x - Math.cos(this.facing) * 10, src ? src.y : this.y, 1);
     if (src) { const a = Math.atan2(this.y - src.y, this.x - src.x); this.vx += Math.cos(a) * 160; this.vy += Math.sin(a) * 160; }
     if (this.hp <= 0) { this.hp = 0; this.alive = false; this.state = 'dead'; world.onHeroDown(this); }
     return true;
   }
+  setWeapon(w, world) { if (this.weapon === w || (this.weaponsBroken && this.weaponsBroken[w])) return; this.weapon = w; this.charging = false; this.charge = 0; if (world) { world.audio.sfx('ui'); world.ev && world.ev.weapon && world.ev.weapon(this, w); } }
   heal(v) { this.hp = Math.min(this.maxHp, this.hp + v); }
   update(dt, intent, world) {
     if (!this.alive) return;
     if (this.state === 'fallen') { this.vx = this.vy = 0; this.charging = false; return; }
     if (this.state === 'pranam') { this.vx = this.vy = 0; this.charging = false; this.stateT -= dt; if (this.stateT <= 0) this.state = 'idle'; return; }
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
+    this.regenWait -= dt; if (this.regenWait <= 0 && this.hp < this.maxHp * 0.6 && this.state !== 'fallen') this.hp = Math.min(this.maxHp * 0.6, this.hp + 3 * dt);
     this.invuln = Math.max(0, this.invuln - dt); this.hurtT = Math.max(0, this.hurtT - dt); this.stateT -= dt; this.comboT -= dt;
     if (this.comboT <= 0) this.combo = 0;
     const c = this.cfg;
+    // simplified scheme: attack/attackHeld + weapon switch -> per-weapon flags (old flags still work for co-op clients / bots)
+    // holding the chariot wheel: Strike = wheel sweep, Switch = wheel slam (no weapon change)
+    if (this.chakra && (intent.attack !== undefined || intent.switchW)) intent = Object.assign({}, intent, { sword: !!intent.attack, gada: !!intent.switchW, attack: undefined, attackHeld: undefined, switchW: false, weaponSel: undefined });
+    if (intent.weaponSel && ['sword', 'bow', 'gada'].includes(intent.weaponSel)) this.setWeapon(intent.weaponSel, world);
+    if (intent.switchW) { const order = ['sword', 'bow', 'gada'].filter(w => !(this.weaponsBroken && this.weaponsBroken[w])); const i = order.indexOf(this.weapon); this.setWeapon(order[(i + 1) % order.length] || 'sword', world); }
+    if (this.weaponsBroken && this.weaponsBroken[this.weapon]) this.setWeapon('sword', world);
+    if (intent.attack !== undefined || intent.attackHeld !== undefined) { const w = this.weapon; intent = Object.assign({}, intent, { sword: intent.sword || (w === 'sword' && intent.attack), gada: intent.gada || (w === 'gada' && intent.attack), bowHeld: intent.bowHeld || (w === 'bow' && intent.attackHeld), bowPressed: intent.bowPressed || (w === 'bow' && intent.attack) }); }
     // aim
     if (intent.aimAngle !== undefined) this.aim = intent.aimAngle;
     else if (intent.mx || intent.my) this.aim = Math.atan2(intent.my, intent.mx);
     // auto-aim assist for bow
     if (intent.bowHeld || intent.bowPressed) { const t = world.nearestEnemy(this.x, this.y, 700); if (t) { const a = Math.atan2(t.y - this.y, t.x - this.x); if (Math.abs(angDiff(this.aim, a)) < 0.6 || !intent.aimAngle) this.aim = a; } }
+    // melee auto-aim: with no mouse, swing at the nearest enemy in reach
+    if ((intent.sword || intent.gada || intent.block) && intent.aimAngle === undefined) { const t = world.nearestEnemy(this.x, this.y, 240); if (t) this.aim = Math.atan2(t.y - this.y, t.x - this.x); }
+    // dhaal (shield): hold to block the front; a block raised just in time staggers the attacker
+    const canBlock = intent.block && !this.shieldBroken && !this.chakra && this.state !== 'jump' && this.state !== 'dodge' && this.state !== 'fallen';
+    if (canBlock && !this.blocking) { this.blocking = true; this.blockT = 0; this.charging = false; this.charge = 0; } else if (!canBlock) this.blocking = false;
+    if (this.blocking) { this.blockT += dt; this.facing = this.aim; }
     // movement
     const busy = this.state === 'gada' || this.state === 'sword' || this.state === 'stunned' || this.state === 'bound';
-    let spd = c.speed * (this.charging ? 0.45 : 1) * (busy ? 0.25 : 1) * (this.slow > 0 ? 0.55 : 1);
+    let spd = c.speed * (this.blocking ? 0.45 : 1) * (this.charging ? 0.45 : 1) * (busy ? 0.25 : 1) * (this.slow > 0 ? 0.55 : 1);
     if (this.state === 'dodge') { this.vx = Math.cos(this.dodgeA) * c.dodge.speed; this.vy = Math.sin(this.dodgeA) * c.dodge.speed; if (this.stateT <= 0) this.state = 'idle'; }
+    else if (this.state === 'jump') { const T = 0.62, k = 1 - Math.max(0, this.stateT) / T; this.z = Math.sin(k * Math.PI) * 70; this.vx = lerp(this.vx, (intent.mx || this.jumpDx) * c.speed * 1.5, 0.12); this.vy = lerp(this.vy, (intent.my || this.jumpDy) * c.speed * 1.5, 0.12);
+      if (this.stateT <= 0) { this.state = 'idle'; this.z = 0; world.addHit({ owner: this, team: this.team, x: this.x, y: this.y, r: 70, dmg: 6, knock: 380, life: 0.1, kind: 'gada', ring: true, inner: 0 }); world.burst(this.x, this.y + 10, '#D9A441', 16, 200); world.audio.sfx('gada'); world.shake(5); } }
     else if (this.state === 'stunned' || this.state === 'bound') { this.vx *= 0.8; this.vy *= 0.8; if (this.stateT <= 0) this.state = 'idle'; }
     else {
       this.vx = lerp(this.vx, intent.mx * spd, 0.35); this.vy = lerp(this.vy, intent.my * spd, 0.35);
       if ((intent.mx || intent.my) && !busy) { this.facing = Math.atan2(intent.my, intent.mx); this.walkT += dt * 9; }
       if (busy && this.stateT <= 0) this.state = 'idle';
       // actions
-      if (intent.dodge && this.cd.dodge <= 0) { this.state = 'dodge'; this.stateT = c.dodge.dur; this.cd.dodge = c.dodge.cd; this.dodgeA = (intent.mx || intent.my) ? Math.atan2(intent.my, intent.mx) : this.facing; this.charging = false; this.charge = 0; world.audio.sfx('dodge'); this.stats.dodges++; world.trail(this); }
+      if (this.blocking) { intent = Object.assign({}, intent, { sword: false, gada: false, bowHeld: false, bowPressed: false }); }
+      if (intent.jump && this.cd.jump <= 0 && !this.chakra) { this.blocking = false; this.state = 'jump'; this.stateT = 0.62; this.cd.jump = 0.9; this.jumpDx = intent.mx || Math.cos(this.facing) * 0.6; this.jumpDy = intent.my || Math.sin(this.facing) * 0.6; this.charging = false; this.charge = 0; world.audio.sfx('dodge'); this.stats.dodges++; }
+      else if (intent.dodge && this.cd.dodge <= 0) { this.state = 'dodge'; this.stateT = c.dodge.dur; this.cd.dodge = c.dodge.cd; this.dodgeA = (intent.mx || intent.my) ? Math.atan2(intent.my, intent.mx) : this.facing; this.charging = false; this.charge = 0; world.audio.sfx('dodge'); this.stats.dodges++; world.trail(this); }
       else if (this.chakra && intent.sword && this.cd.sword <= 0 && this.state === 'idle') { this.state = 'sword'; this.stateT = 0.3; this.cd.sword = 0.55; this.facing = this.aim; this.swingSide = 0; world.addHit({ owner: this, team: this.team, x: this.x, y: this.y, r: 120, dmg: 22, knock: 650, life: 0.12, parry: true, kind: 'chakra', ring: true, inner: 10, breakShield: true }); world.audio.sfx('gada'); world.audio.sfx('sword'); world.shake(6); world.slashes.push({ x: this.x, y: this.y, a: this.aim, i: 0, life: 0.2, r: 125, color: '#F4C95D', full: true }); }
       else if (this.chakra && intent.gada && this.cd.gada <= 0 && this.state === 'idle') { this.state = 'gada'; this.stateT = 0.7; this.cd.gada = 2.2; this.facing = this.aim; this._chakraSlam = 0.4; }
       else if (intent.gada && !this.weaponsBroken.gada && this.cd.gada <= 0 && this.state === 'idle' && !this.chakra) { this.state = 'gada'; this.stateT = c.gada.windup + 0.25; this.cd.gada = c.gada.cd; this.facing = this.aim; this._gadaPending = c.gada.windup; this.charging = false; }

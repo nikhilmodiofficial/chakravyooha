@@ -5,7 +5,7 @@ import { drawSilhouette, drawChariotSil } from './art.js';
 
 export class Cinematic {
   constructor(renderer, voice, audio, ui) { this.r = renderer; this.voice = voice; this.audio = audio; this.ui = ui; this.active = false; this.imgs = {};
-    const map = { dawn: 'bg_dawn', camp_kaurava: 'bg_kaurava', vyuha: 'bg_vyuha', camp_pandava: 'bg_pandava', satyaki_memory: 'bg_ashram', gate: 'bg_gate', inside: 'bg_inside', sunset: 'bg_sunset', siege: 'bg_siege', collapse: 'bg_collapse' };
+    const map = { dawn: 'bg_dawn', camp_kaurava: 'bg_kaurava' }; // painted backdrops that exist; other scenes use the procedural painter
     for (const k in map) { const im = new Image(); im.src = 'assets/img/' + map[k] + '.jpg'; im.onerror = () => { im.failed = true; }; this.imgs[k] = im; } }
   async play(scenes, opts = {}) {
     this.active = true; this.scenes = scenes; this.si = 0; this.li = 0; this.t = 0; this.skipped = false; this.opts = opts; this.line = null; this.holdT = 0;

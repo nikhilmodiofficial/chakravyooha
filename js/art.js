@@ -42,8 +42,11 @@ export function drawWarrior(ctx, o) {
   ctx.strokeStyle = p.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -33 - bob, 7, 0.3, Math.PI - 0.3); ctx.stroke();
   // shoulder pads
   fill(shade(p.armor, 20), () => { ctx.ellipse(-15, -29 - bob, 7, 4.5, 0.2, 0, TAU); }); fill(shade(p.armor, 20), () => { ctx.ellipse(15, -29 - bob, 7, 4.5, -0.2, 0, TAU); });
+  const drawDhaal = (x, y, r) => { ctx.save(); ctx.translate(x, y); const g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 1, 0, 0, r); g.addColorStop(0, hurt ? '#fff' : '#8a5a32'); g.addColorStop(1, hurt ? '#fff' : '#3a2416'); ctx.fillStyle = g; ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill(); ctx.stroke(); ctx.strokeStyle = p.accent; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, 0, r - 2.5, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, r * 0.45, 0, TAU); ctx.stroke(); ctx.fillStyle = p.accent; for (let i = 0; i < 4; i++) { const an = i / 4 * TAU + 0.785; ctx.beginPath(); ctx.arc(Math.cos(an) * r * 0.72, Math.sin(an) * r * 0.72, 1.4, 0, TAU); ctx.fill(); } ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, TAU); ctx.fill(); ctx.restore(); };
   // back arm (biceps)
-  limb(-13, -26 - bob, -18 - leg * 3, -9 - bob, 6.5, skin); muscle(-15, -20 - bob, 3.6, 5, 0.4); ctx.strokeStyle = p.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-17, -16 - bob); ctx.lineTo(-13, -14 - bob); ctx.stroke();
+  if (o.dhaal && !o.blocking) { limb(-13, -26 - bob, -18 - leg * 3, -9 - bob, 6.5, skin); drawDhaal(-19 - leg * 3, -12 - bob, 11); }
+  else limb(-13, -26 - bob, -18 - leg * 3, -9 - bob, 6.5, skin);
+  muscle(-15, -20 - bob, 3.6, 5, 0.4); ctx.strokeStyle = p.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-17, -16 - bob); ctx.lineTo(-13, -14 - bob); ctx.stroke();
   // neck + head
   ctx.fillStyle = skin; ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-4, -31 - bob); ctx.lineTo(-4, -36 - bob); ctx.lineTo(4, -36 - bob); ctx.lineTo(4, -31 - bob); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.ellipse(0, -41 - bob, 7.6, 8.2, 0, 0, TAU); ctx.fill(); ctx.stroke();
@@ -74,6 +77,7 @@ export function drawWarrior(ctx, o) {
   limb(0, 0, 15, 9, 6.5, skin); muscle(6, 3, 4.5, 3.4, 0.5); ctx.strokeStyle = p.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(11, 5); ctx.lineTo(13, 10); ctx.stroke();
   ctx.translate(15, 9); drawWeapon(ctx, o.weapon, p, atk, o.charge || 0);
   ctx.restore();
+  if (o.dhaal && o.blocking) { drawDhaal(17, -24 - bob, 15); }
   // wounds: cuts and bruises appear as HP drops
   if (w > 0.15) { ctx.strokeStyle = '#8a0f0f'; ctx.lineWidth = 1.3; const cuts = [[-4, -22, -1, -16], [6, -14, 9, -9], [-16, -12, -14, -8], [8, 2, 11, 7], [-9, -40, -7, -37], [5, -8, 8, -3]]; const n = Math.min(cuts.length, Math.ceil(w * cuts.length)); for (let i = 0; i < n; i++) { const c = cuts[i]; ctx.beginPath(); ctx.moveTo(c[0], c[1] - bob); ctx.lineTo(c[2], c[3] - bob); ctx.stroke(); } if (w > 0.5) { ctx.fillStyle = 'rgba(90,20,60,0.45)'; ctx.beginPath(); ctx.ellipse(-8, -18 - bob, 4, 3, 0.4, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(140,10,10,0.5)'; ctx.beginPath(); ctx.ellipse(10, 4, 3, 2, 0, 0, TAU); ctx.fill(); } }
   ctx.restore();
