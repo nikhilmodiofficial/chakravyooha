@@ -16,7 +16,7 @@ export class Boss {
   get hpPct() { return this.hp / this.maxHp; }
   takeDamage(d, world, hit) {
     if (!this.alive || this.invuln) return;
-    if (this.kavach && hit && hit.kind === 'arrow') { world.audio.sfx('clash'); world.burst(hit.x, hit.y, '#FFE8A3', 8, 160, true); world.floatText(this.x, this.y - 50, 'कवच', '#FFE8A3'); return; }
+    if (this.kavach && hit && hit.kind === 'arrow') { world.audio.sfx('clash'); world.burst(hit.x, hit.y, '#FFE8A3', 8, 160, true); world.floatText(hit.x, hit.y - 20, 'बाण कटा', '#FFE8A3'); world.addProjectile({ owner: this, team: 'kaurava', x: hit.x, y: hit.y, vx: -hit.vx * 0.5, vy: -hit.vy * 0.5, dmg: 4, life: 0.5, kind: 'arrow' }); return; }
     if (this.guard && hit && hit.kind === 'sword') { world.audio.sfx('clash'); world.burst(hit.x, hit.y, '#FFFFFF', 8, 160, true); return; }
     if (this.guard && hit && hit.kind === 'gada') { this.guard = false; this.move = null; this.stun = Math.max(this.stun, 1.0); world.audio.sfx('clash'); world.floatText(this.x, this.y - 60, 'रक्षा टूटी!', '#FFFFFF'); world.burst(this.x, this.y - 10, '#FFFFFF', 14, 220, true); }
     if (this.moves.onHit && this.moves.onHit(this, world, hit, d) === false) return;
@@ -94,7 +94,7 @@ const MOVESETS = {
     tick: (b, w, dt, t) => {
       b.extras.glow = Math.max(0, b.extras.glow - dt);
       // Kripa stands at arena edge opposite the hero and fires every ~3s; the shot reveals the real Ashwatthama.
-      const k = b.extras.kripa; const a = Math.atan2(w.arena.cy - t.y, w.arena.cx - t.x); k.x = w.arena.cx + Math.cos(a) * (w.arena.r - 40); k.y = w.arena.cy + Math.sin(a) * (w.arena.r - 40);
+      const k = b.extras.kripa; if (w.arena.wallPoint) { const side = t.x < w.arena.cx ? 1 : -1; const wp = w.arena.wallPoint(side * 0.22, -10); k.x = wp.x; k.y = wp.y; } else { const a = Math.atan2(w.arena.cy - t.y, w.arena.cx - t.x); k.x = w.arena.cx + Math.cos(a) * (w.arena.r - 40); k.y = w.arena.cy + Math.sin(a) * (w.arena.r - 40); }
       b.extras.kripaT -= dt; if (b.extras.kripaT <= 0) { b.extras.kripaT = b.phase === 2 ? 2.2 : 3.2; const ang = Math.atan2(t.y - k.y, t.x - k.x); for (let i = -1; i <= 1; i++) w.addProjectile({ owner: b, team: 'kaurava', x: k.x, y: k.y, vx: Math.cos(ang + i * 0.12) * 460, vy: Math.sin(ang + i * 0.12) * 460, dmg: 8, life: 2.4, kind: 'arrow' }); w.audio.sfx('arrow'); b.extras.glow = 1.2; w.floatText(k.x, k.y - 40, 'कृप', '#CFF4FF'); }
       // clones
       b.extras.clones = b.extras.clones.filter(c => c.alive); b.extras.cloneT -= dt;

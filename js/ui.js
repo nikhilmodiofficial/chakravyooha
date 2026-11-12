@@ -41,5 +41,5 @@ export class UI {
     if (opts.foot) box.appendChild(el('div', 'foot', opts.foot)); this.menu.appendChild(box); return box;
   }
   hideMenu() { this.menu.classList.add('hidden'); this.menu.innerHTML = ''; }
-  showControlsHint(isTouch) { this.toast(isTouch ? 'बायाँ अंगूठा: चलना · दायाँ: तलवार / धनुष (दबाए रखें) / गदा / छलांग' : 'WASD चलना · J तलवार · K धनुष (दबाए रखें) · L गदा · Space छलांग · U अस्त्र', 6000); }
+  showControlsHint(isTouch) { this.toast(isTouch ? 'बायाँ अंगूठा: चलना · दायाँ: तलवार / धनुष (दबाए रखें) / गदा / छलांग' : 'WASD चलना · माउस निशाना · बायाँ क्लिक तलवार · दायाँ क्लिक दबाए रखें धनुष · Q गदा · Space छलांग · E अस्त्र · Esc विराम', 7000); }
 }

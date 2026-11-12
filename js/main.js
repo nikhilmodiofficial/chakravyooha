@@ -1,5 +1,5 @@
 // Chakravyooh — orchestration: states, menus, co-op wiring, loop.
-import { RINGS, ASTRAS, BOSSES, CHARACTERS, INTRO, RING_LINES, EPILOGUE, RING7 } from './config.js';
+import { RINGS, ASTRAS, BOSSES, CHARACTERS, INTRO, RING_LINES, EPILOGUE, RING7, CODEX } from './config.js';
 import { Hero } from './entities.js';
 import { World } from './world.js';
 import { Renderer } from './render.js';
@@ -38,10 +38,11 @@ class Game {
       cont ? { label: 'नई दौड़', sub: 'शुरू से', onClick: () => { this.gesture(); this.save.reset(); this.startRun(0); } } : null,
       { label: 'मित्र को अभी बुलाओ', sub: 'शुरू से सह-खेल: मित्र = सात्यकि', onClick: () => { this.gesture(); this.hostFromStart(); } },
       { label: 'कैसे खेलें', onClick: () => { this.gesture(); this.howTo(); } },
+      { label: 'ग्रंथ', sub: 'इतिहास के पृष्ठ — जो खेलते हुए खुलते हैं', onClick: () => { this.gesture(); this.codexMenu(); } },
       { label: (s.mute ? 'ध्वनि: बंद' : 'ध्वनि: चालू') + ' · ' + (s.voice ? 'आवाज़: चालू' : 'आवाज़: बंद'), sub: 'बदलने के लिए दबाएँ', onClick: () => { this.gesture(); if (!s.mute && s.voice) { s.voice = false; } else if (!s.mute && !s.voice) { s.mute = true; } else { s.mute = false; s.voice = true; } this.save.write(); this.voice.muted = !s.voice; this.audio.setMute(!!s.mute); this.title(); } }
     ].filter(Boolean), foot: 'कोई लॉगिन नहीं · कोई ट्रैकिंग नहीं · सब कुछ ब्राउज़र में' });
   }
-  howTo() { this.ui.showMenu({ title: 'कैसे खेलें', body: ['कीबोर्ड: WASD चलना · J तलवार (3-हिट कॉम्बो) · K धनुष — दबाए रखो, छोड़ो (पूरा खिंचा बाण भेदता है) · L गदा (धीमी, भारी, ढाल तोड़ती है) · Space छलांग (अभेद्य क्षण) · U अस्त्र · माउस से निशाना।', 'मोबाइल: बाएँ अंगूठे से चलो, दाएँ बटन से वार।', 'नियम 1 — अस्त्र तभी चलेगा जब शत्रु-योद्धा का प्राण 50% या कम हो। उससे पहले शस्त्र-युद्ध।', 'नियम 2 — हर चक्र में जीता अस्त्र अगले चक्र में चलता है। वायु → अग्नि → वरुण → नाग → भूमि → हिम।', 'हथियार — तलवार: तेज़, कॉम्बो, आते बाण काटती है। गदा: धीमी, ढाल और महारथी की \'रक्षा\' तोड़ती है, पीछे धकेलती है। धनुष: दूरी से, पर तरकश सीमित (30 बाण; पूरा खिंचा बाण 2 खाता है)। गिरे धनुर्धरों से तरकश मिलता है। कर्ण के कवच पर बाण व्यर्थ।', 'नियम 3 — प्राण लगातार घटता है (थकान)। शत्रुओं से गिरे अस्त्र-कण उठाओ (+8)। 20% से नीचे: विपत्ति।', 'नियम 4 — सातवें चक्र का द्वार अकेले नहीं टूटता। वहाँ मित्र-स्मरण।', 'तलवार से आते बाण काटे जा सकते हैं (प्रतिघात)। शल्य की गदा उठते समय अपनी गदा मारो — गदा-संघर्ष।'], buttons: [{ label: 'वापस', onClick: () => this.title() }] }); }
+  howTo() { this.ui.showMenu({ title: 'कैसे खेलें', body: ['कीबोर्ड + माउस: WASD चलना · माउस से निशाना · बायाँ क्लिक तलवार (3-हिट कॉम्बो) · दायाँ क्लिक दबाए रखो, छोड़ो = धनुष (पूरा खिंचा बाण भेदता है) · Q गदा · Space छलांग (अभेद्य क्षण) · E अस्त्र · Esc विराम। (J/K/L/U भी चलते हैं।)', 'गेमपैड (Xbox लेआउट): बायाँ स्टिक चलना · दायाँ स्टिक निशाना · X तलवार · RT धनुष · Y गदा · A छलांग · B अस्त्र · Start विराम।', 'मोबाइल: बाएँ अंगूठे से कहीं भी छूकर चलो, दाएँ बटन से वार। निशाना अपने आप नज़दीकी शत्रु पर।', 'नियम 1 — अस्त्र तभी चलेगा जब शत्रु-योद्धा का प्राण 50% या कम हो। उससे पहले शस्त्र-युद्ध।', 'नियम 2 — हर चक्र में जीता अस्त्र अगले चक्र में चलता है। वायु → अग्नि → वरुण → नाग → भूमि → हिम।', 'हथियार — तलवार: तेज़, कॉम्बो, आते बाण काटती है। गदा: धीमी, ढाल और महारथी की \'रक्षा\' तोड़ती है, पीछे धकेलती है। धनुष: दूरी से, पर तरकश सीमित (30 बाण; पूरा खिंचा बाण 2 खाता है)। गिरे धनुर्धरों से तरकश मिलता है। कर्ण के कवच पर बाण व्यर्थ।', 'नियम 3 — प्राण लगातार घटता है (थकान)। शत्रुओं से गिरे अस्त्र-कण उठाओ (+8)। 20% से नीचे: विपत्ति।', 'नियम 4 — सातवें चक्र का द्वार अकेले नहीं टूटता। वहाँ मित्र-स्मरण।', 'तलवार से आते बाण काटे जा सकते हैं (प्रतिघात)। शल्य की गदा उठते समय अपनी गदा मारो — गदा-संघर्ष।'], buttons: [{ label: 'वापस', onClick: () => this.title() }] }); }
 
   // ---------- RUN ----------
   async startRun(ringIdx) {
@@ -60,12 +61,12 @@ class Game {
       bossIntro: b => { this.ui.setObjective('महारथी: ' + b.def.name + ' — पहले 50% तक शस्त्र से'); this.sayRaw(b.def.intro, b.def.accent); this.audio.playMusic('boss', ring.bpm + 8); if (this.coop.host) this.coop.host.send({ t: 'ev', k: 'obj', text: 'महारथी: ' + b.def.name }); },
       phase2: b => { if (this.abhi.astra) { this.ui.toast('अस्त्र आह्वान उपलब्ध — ' + ASTRAS[this.abhi.astra].name + ' (U)', 3000); this.ui.setObjective(b.def.name + ' ≤ 50% — अस्त्र चलाओ!'); } else this.ui.setObjective(b.def.name + ' ≤ 50% — वार जारी रखो'); },
       heroDown: h => { if (h === this.abhi) this.onDeath(); },
-      bossDefeated: b => { this.sayRaw(b.def.defeat, '#F1E7D0'); if (this.world.nabhi && this.world.nabhi.hp > 0) this.ui.setObjective('सात्यकि: व्यूह-नाभि गिराओ!'); else this.ui.setObjective(''); },
+      bossDefeated: b => { this.sayRaw(b.def.defeat, '#F1E7D0'); if (this.world.nabhi && this.world.nabhi.hp > 0) this.ui.setObjective('सात्यकि: व्यूह-नाभि गिराओ!'); else this.ui.setObjective('द्वार खुला — भीतर बढ़ो ↑'); this.ui.toast('द्वार खुल गया। आगे बढ़ो — अगली परत भीतर है।', 3000); },
       ringDone: () => this.onRingDone(),
       vipatti: () => { this.ui.toast('विपत्ति! अस्त्र-कण उठाओ', 2200); },
       nabhi: () => { this.ui.toast('व्यूह-नाभि ध्वस्त — परत अब बंद नहीं होगी', 2500); }
     });
-    if (heroes.length > 1) { const a = -Math.PI / 2 + 0.9; this.world.nabhi = { x: this.world.arena.cx + Math.cos(a) * 300, y: this.world.arena.cy + Math.sin(a) * 300, hp: 160 + idx * 40, maxHp: 160 + idx * 40 }; }
+    if (heroes.length > 1 && this.world.arena.wallPoint) { const wp = this.world.arena.wallPoint(-0.36, 70); this.world.nabhi = { x: wp.x, y: wp.y, hp: 160 + idx * 40, maxHp: 160 + idx * 40 }; }
     this.ring7 = null; if (idx === 6) { this.ring7 = new Ring7(this.world, this); this.audio.playMusic('siege', 132); }
     else { this.audio.playMusic('ring', ring.bpm); setTimeout(() => this.sayRaw(RING_LINES[idx + 1].drona, '#D9A441'), 900); this.ui.setObjective(''); }
     this.state = 'ring'; if (idx === 0 || this.save.d.runs <= 1) this.ui.showControlsHint(this.input.isTouch);
@@ -81,9 +82,12 @@ class Game {
     const A = earned ? ASTRAS[earned] : null; const after = RING_LINES[this.ringIdx + 1].after; const nextRing = RINGS[this.ringIdx + 1];
     this.sayRaw(after, '#F1E7D0');
     const custom = document.createElement('div'); custom.className = 'astra-card'; if (A) { custom.style.setProperty('--c', A.color); const n = document.createElement('div'); n.className = 'an'; n.textContent = A.name; const d = document.createElement('div'); d.className = 'ad'; d.textContent = A.desc + ' — अगले चक्र में, शत्रु ≤ 50% पर।'; custom.append(n, d); }
-    this.ui.showMenu({ kicker: ring.name + ' टूटा · ' + fmtTime(this.elapsed), title: A ? 'अस्त्र प्राप्त' : 'चक्र टूटा', custom: A ? custom : null, body: [after.replace(/^संजय:\s*/, '')], buttons: [{ label: nextRing.name, sub: nextRing.sub + ' — ' + BOSSES[nextRing.boss].name, cls: 'primary', onClick: () => { this.abhi.astra = nextRing.useAstra; this.startRing(this.ringIdx + 1); } }, { label: 'विराम', sub: 'प्रगति सुरक्षित है', onClick: () => this.title() }] });
+    const wrap = document.createElement('div'); if (A) wrap.appendChild(custom); wrap.appendChild(this.codexPage(this.ringIdx));
+    this.ui.showMenu({ kicker: ring.name + ' टूटा · ' + fmtTime(this.elapsed), title: A ? 'अस्त्र प्राप्त' : 'चक्र टूटा', custom: wrap, body: [after.replace(/^संजय:\s*/, '')], buttons: [{ label: nextRing.name, sub: nextRing.sub + ' — ' + BOSSES[nextRing.boss].name, cls: 'primary', onClick: () => { this.abhi.astra = nextRing.useAstra; this.startRing(this.ringIdx + 1); } }, { label: 'विराम', sub: 'प्रगति सुरक्षित है', onClick: () => this.title() }] });
     if (this.coop.host) this.coop.host.send({ t: 'ev', k: 'toast', text: ring.name + ' टूटा। अगला: ' + nextRing.name });
   }
+  codexPage(i) { const c = CODEX[i]; const d = document.createElement('div'); d.className = 'codex'; const h = document.createElement('div'); h.className = 'ch'; h.textContent = 'ग्रंथ-पृष्ठ ' + (i + 1) + ' · ' + c.title; d.appendChild(h); for (const [k, v] of [['व्यास ने लिखा', c.vyasa], ['यहाँ क्या बदला', c.here], ['गर्व की बात', c.pride]]) { const row = document.createElement('div'); row.className = 'cr'; const kk = document.createElement('div'); kk.className = 'ck'; kk.textContent = k; const vv = document.createElement('div'); vv.className = 'cv'; vv.textContent = v; row.append(kk, vv); d.appendChild(row); } return d; }
+  codexMenu() { const wrap = document.createElement('div'); const unlocked = Math.max(this.save.d.ring, this.save.d.wins > 0 ? 7 : 0); if (!unlocked) wrap.appendChild(Object.assign(document.createElement('p'), { className: 'body', textContent: 'हर चक्र तोड़ने पर एक पृष्ठ खुलता है।' })); for (let i = 0; i < unlocked && i < CODEX.length; i++) wrap.appendChild(this.codexPage(i)); this.ui.showMenu({ kicker: 'द्रोण पर्व · अभिमन्यु-वध पर्व', title: 'ग्रंथ', custom: wrap, buttons: [{ label: 'वापस', onClick: () => this.title() }] }); }
   pause() { if (this.state !== 'ring') return; this.state = 'pause'; this.ui.showMenu({ title: 'विराम', body: [RINGS[this.ringIdx].name + ' · ' + fmtTime(this.elapsed)], buttons: [{ label: 'जारी', cls: 'primary', onClick: () => { this.ui.hideMenu(); this.state = 'ring'; } }, { label: 'मुख्य पृष्ठ', sub: 'इस चक्र की प्रगति नहीं बचेगी', onClick: () => { this.coopClose(); this.title(); } }] }); }
 
   // ---------- RING 7: MITRA SMARAN ----------
@@ -115,17 +119,17 @@ class Game {
     this.ui.hideMenu(); this.state = 'ring'; if (mode === 'hotseat') { this.coop.mode = 'hotseat'; if (this.coop.host) { this.coop.host.close(); this.coop.host = null; } }
     if (!this.satyaki) { this.satyaki = new Hero('satyaki', 0, 0); this.satyaki.name = 'सात्यकि'; }
     this.ui.setRing(RINGS[6], 'satyaki'); this.ring7.startCoop(this.satyaki);
-    if (mode === 'hotseat') this.ui.toast('अब तुम सात्यकि हो। WASD/J/K/L वही।', 3500);
+    if (mode === 'hotseat') this.ui.toast('अब तुम सात्यकि हो। वही नियंत्रण।', 3500);
     if (this.coop.host) this.coop.host.send({ t: 'ev', k: 'obj', text: 'बाण-जाल: तीन चमकते बिंदुओं पर बाण मारो' });
   }
   async onVictory() {
     this.state = 'cine'; this.ui.showHud(false); const s = this.save.d; s.wins++; if (!s.bestTime || this.elapsed < s.bestTime) s.bestTime = this.elapsed; s.ring = 0; s.astras = []; this.save.write();
     if (this.coop.host) this.coop.host.send({ t: 'ev', k: 'end', time: fmtTime(this.elapsed) });
-    this.audio.playMusic('epilogue', 72); this.audio.sfx('shankh'); await this.cine.play(EPILOGUE, { seenBefore: s.wins > 1 }); this.endMenu();
+    this.audio.playMusic('epilogue', 72); this.audio.sfx('shankh'); await this.cine.play(EPILOGUE, { seenBefore: s.wins > 1 }); this.ui.showMenu({ kicker: 'अंतिम पृष्ठ', title: 'ग्रंथ-पृष्ठ ७', custom: this.codexPage(6), buttons: [{ label: 'आगे', cls: 'primary', onClick: () => this.endMenu() }] });
   }
   endMenu() {
     this.state = 'end'; const url = location.origin + location.pathname; const friend = this.coop.friend || (this.coop.mode === 'hotseat' ? 'स्वयं' : 'मित्र');
-    const card = renderCard({ title: 'इतिहास बदल गया', line1: 'चक्रव्यूह टूटा — ' + fmtTime(this.elapsed), line2: 'सात्यकि: ' + friend, line3: 'अभिमन्यु जीवित। 10,000 सैनिक बचे।', url });
+    const card = renderCard({ title: 'इतिहास बदल गया', line1: 'चक्रव्यूह टूटा — ' + fmtTime(this.elapsed), line2: 'सात्यकि: ' + friend, line3: 'अभिमन्यु जीवित। हज़ारों सैनिक बचे।', url });
     const img = document.createElement('img'); img.src = card.toDataURL('image/png'); img.className = 'cardimg'; img.alt = 'share card';
     this.ui.showMenu({ kicker: 'संध्या · कुरुक्षेत्र', title: 'इतिहास बदल गया', custom: img, body: ['समय: ' + fmtTime(this.elapsed) + (this.save.d.bestTime ? ' · सर्वश्रेष्ठ: ' + fmtTime(this.save.d.bestTime) : '')], buttons: [{ label: 'साझा करो', cls: 'primary', onClick: () => shareCard(card, 'मैंने चक्रव्यूह तोड़ा — ' + fmtTime(this.elapsed) + ' में। अभिमन्यु जीवित है। तुम तोड़ सकते हो?', url) }, { label: 'कार्ड डाउनलोड', onClick: () => downloadCard(card) }, { label: 'फिर से', onClick: () => { this.coopClose(); this.startRun(0); } }, { label: 'मुख्य पृष्ठ', onClick: () => { this.coopClose(); this.title(); } }] });
   }
@@ -163,16 +167,16 @@ class Game {
       this.netT += dt; if (this.coop.host && this.netT > 0.05) { this.netT = 0; this.coop.host.send(snapshot(this.world, { stage: this.ring7 ? this.ring7.stage : null, obj: this.ui.objective.textContent })); }
       if (this.coop.host && this.coop.host.intent && performance.now() - this.coop.host.lastIn > 6000 && this.satyaki) { /* idle friend: nothing */ }
     } else if (this.state === 'fallen' || this.state === 'hostwait') { this.world.update(dt, [{ mx: 0, my: 0 }, { mx: 0, my: 0 }]); if (this.ring7) this.ring7.update(dt, [{}, {}]); this.netT += dt; if (this.coop.host && this.netT > 0.1) { this.netT = 0; this.coop.host.send(snapshot(this.world, { stage: 'fallen' })); } }
-    const focus = this.ring7 && this.ring7.stage !== 'siege' && this.ring7.stage !== 'fallen' && this.satyaki ? (this.coop.mode === 'host' ? this.abhi : this.satyaki) : this.abhi;
-    this.r.draw(this.world, this.t, this.state === 'ring' && this.ring7 && ['A', 'B', 'C', 'D'].includes(this.ring7.stage) && this.coop.mode !== 'host' ? this.satyaki : this.abhi);
+    this.r.draw(this.world, this.t, this.activeHero());
     this.ui.updateHud(this.world, this.activeHero(), this.elapsed, this.satyaki && this.world.heroes.includes(this.satyaki) && this.activeHero() !== this.satyaki ? this.satyaki : (this.activeHero() === this.satyaki ? this.abhi : null));
   }
-  activeHero() { if (this.ring7 && this.satyaki && ['A', 'B', 'C', 'D'].includes(this.ring7.stage) && this.coop.mode !== 'host') return this.satyaki; return this.abhi; }
+  activeHero() { if (this.ring7 && this.satyaki && this.coop.mode !== 'host' && this.ring7.controlled() === 'satyaki') return this.satyaki; return this.abhi; }
   buildIntents(local) {
-    const empty = { mx: 0, my: 0 };
-    if (this.ring7 && this.satyaki && ['A', 'B', 'C', 'D'].includes(this.ring7.stage)) {
-      if (this.coop.mode === 'host') { const ri = this.coop.host.takeIntent() || empty; return [Object.assign({}, local, { mx: 0, my: 0, sword: false, gada: false, bowHeld: false, bowPressed: false, dodge: false }), ri]; }
-      return [{ mx: 0, my: 0, astra: local.astra, act: local.astra }, local]; // hotseat: one person plays Satyaki; U doubles as Abhimanyu's astra at the core
+    const empty = { mx: 0, my: 0 }; const still = { mx: 0, my: 0 };
+    if (this.ring7 && this.satyaki && this.world.heroes.includes(this.satyaki)) {
+      const satTurn = this.ring7.controlled() === 'satyaki';
+      if (this.coop.mode === 'host') { const ri = this.coop.host.takeIntent() || empty; return [satTurn ? Object.assign({}, still, { astra: local.astra, act: local.astra }) : Object.assign({}, local, { act: local.astra }), ri]; }
+      return satTurn ? [Object.assign({}, still, { astra: local.astra, act: local.astra }), local] : [Object.assign({}, local, { act: local.astra }), still];
     }
     if (this.coop.mode === 'host' && this.world.heroes.length > 1) return [local, this.coop.host.takeIntent() || empty];
     return [local];

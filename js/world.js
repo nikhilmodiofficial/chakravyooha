@@ -6,17 +6,17 @@ import { Boss } from './bosses.js';
 export class World {
   constructor(ringIdx, heroes, audio, events) {
     this.ring = RINGS[ringIdx]; this.ringIdx = ringIdx; this.heroes = heroes; this.audio = audio; this.ev = events;
-    this.arena = { cx: WORLD.w / 2, cy: WORLD.h / 2, r: 400 };
+    this.arena = makeArena(ringIdx);
     this.enemies = []; this.boss = null; this.projectiles = []; this.hits = []; this.pickups = []; this.particles = []; this.floats = []; this.slashes = []; this.hazards = []; this.trails = [];
     this.phase = 'intro'; this.phaseT = 1.2; this.wave = 0; this.time = 0; this.shakeV = 0; this.slowmo = 1; this.slowT = 0;
     this.vipatti = false; this.astraFx = null; this.scripted = false; this.decayOn = true; this.nabhi = null;
-    for (const h of heroes) { h.x = this.arena.cx; h.y = this.arena.cy + 250; h.astra = this.ring.useAstra; h.astraUsed = false; }
+    for (const h of heroes) { const sp = this.arena.spawn(); h.x = sp.x; h.y = sp.y; h.astra = this.ring.useAstra; h.astraUsed = false; }
     this.flash = 0; this.bossIntroT = 0;
   }
   // ---- spatial helpers
-  inArena(x, y, pad = 0) { return Math.hypot(x - this.arena.cx, y - this.arena.cy) < this.arena.r + pad; }
-  clampToArena(e) { const dx = e.x - this.arena.cx, dy = e.y - this.arena.cy, d = Math.hypot(dx, dy), max = this.arena.r - e.r; if (d > max) { e.x = this.arena.cx + dx / d * max; e.y = this.arena.cy + dy / d * max; } }
-  nearestHero(x, y) { let best = null, bd = 1e9; for (const h of this.heroes) if (h.alive) { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = h; } } return best; }
+  inArena(x, y, pad = 0) { return this.arena.inside(x, y, pad); }
+  clampToArena(e) { this.arena.clamp(e); }
+  nearestHero(x, y) { let best = null, bd = 1e9; for (const h of this.heroes) if (h.alive && h.state !== 'bound' && h.state !== 'fallen') { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = h; } } return best; }
   nearestEnemy(x, y, max = 1e9) { let best = null, bd = max; const all = this.boss && this.boss.alive ? [this.boss, ...this.enemies] : this.enemies; for (const e of all) if (e.alive) { const d = Math.hypot(e.x - x, e.y - y); if (d < bd) { bd = d; best = e; } } return best; }
   // ---- fx
   shake(v) { this.shakeV = Math.max(this.shakeV, v); }
@@ -28,12 +28,13 @@ export class World {
   addProjectile(p) { this.projectiles.push(new Projectile(p)); }
   // ---- events
   onEnemyDead(e) { this.burst(e.x, e.y, e.color, 14, 200); if (!e.clone && e.type === 'archer' && Math.random() < 0.7) this.pickups.push(new Pickup(e.x + 14, e.y, 'quiver')); else if (!e.clone && Math.random() < 0.35) this.pickups.push(new Pickup(e.x, e.y)); if (e.clone) { this.burst(e.x, e.y, '#8F6CFF', 16, 180, true); this.floatText(e.x, e.y - 30, 'माया', '#8F6CFF'); } if (e.name) this.floatText(e.x, e.y - 40, e.name + ' पराजित', '#F4C95D'); }
+  hurtFlash = 0;
   onHeroDown(h) { this.audio.sfx('die'); this.shake(14); this.ev.heroDown && this.ev.heroDown(h); }
   onBossPhase2(b) { this.audio.sfx('unlock'); this.flash = 0.6; this.ev.phase2 && this.ev.phase2(b); for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(b.x + rnd(-60, 60), b.y + rnd(-60, 60))); this.pickups.push(new Pickup(b.x + rnd(-80, 80), b.y + 60, 'quiver')); }
-  onBossDefeated(b) { this.burst(b.x, b.y, b.def.accent, 40, 320, true); this.shake(16); this.slowT = 1.6; this.phase = 'won'; this.phaseT = 2.2; this.audio.sfx('shatter'); this.ev.bossDefeated && this.ev.bossDefeated(b); }
+  onBossDefeated(b) { this.burst(b.x, b.y, b.def.accent, 40, 320, true); this.shake(16); this.slowT = 1.6; this.phase = 'won'; this.phaseT = 16; this.audio.sfx('shatter'); this.arena.gateOpen = true; if (!this.scripted) for (const e of this.enemies) if (e.alive && !e.isBoss && !e.def) { e.hp = 0; e.alive = false; this.onEnemyDead(e); } this.ev.bossDefeated && this.ev.bossDefeated(b); }
   // ---- spawning
-  spawnWave(n) { const types = this.ringIdx >= 2 ? ['melee', 'melee', 'archer', 'shield'] : this.ringIdx >= 1 ? ['melee', 'melee', 'shield'] : ['melee']; const scale = 1 + this.ringIdx * 0.25; for (let i = 0; i < n; i++) { const a = rnd(-Math.PI, 0) - 0.3; const r = this.arena.r - 30; const s = new Soldier(this.arena.cx + Math.cos(a) * r, this.arena.cy + Math.sin(a) * r, types[Math.floor(Math.random() * types.length)], scale); this.enemies.push(s); this.burst(s.x, s.y, '#D9A441', 6, 100); } }
-  spawnBoss() { this.boss = new Boss(this.ring.boss, this.arena.cx, this.arena.cy - 200, this); this.bossIntroT = 2.4; this.audio.sfx('rumble'); this.ev.bossIntro && this.ev.bossIntro(this.boss); }
+  spawnWave(n) { const types = this.ringIdx >= 2 ? ['melee', 'melee', 'archer', 'shield'] : this.ringIdx >= 1 ? ['melee', 'melee', 'shield'] : ['melee']; const scale = 1 + this.ringIdx * 0.25; for (let i = 0; i < n; i++) { const sp = this.arena.enemySpawn(i, n); const s = new Soldier(sp.x, sp.y, types[Math.floor(Math.random() * types.length)], scale); this.enemies.push(s); this.burst(s.x, s.y, '#D9A441', 6, 100); } }
+  spawnBoss() { const g = this.arena.bossSpawn(); this.boss = new Boss(this.ring.boss, g.x, g.y, this); this.bossIntroT = 2.4; this.audio.sfx('rumble'); this.ev.bossIntro && this.ev.bossIntro(this.boss); }
   // ---- astra
   canAstra(h) { return !!h.astra && !h.astraUsed && this.boss && this.boss.alive && this.boss.phase === 2 && !this.astraFx; }
   useAstra(h) {
@@ -65,6 +66,7 @@ export class World {
     const vip = this.heroes[0] && this.heroes[0].alive && this.heroes[0].hp < this.heroes[0].maxHp * 0.2;
     if (vip !== this.vipatti) { this.vipatti = vip; this.audio.setVipatti(vip); if (vip) { this.audio.sfx('vipatti'); this.ev.vipatti && this.ev.vipatti(); } }
     // enemies & boss
+    this.attackTokens = 2 + Math.floor(this.ringIdx / 2); this.attacking = this.enemies.filter(e => e.alive && (e.state === 'tele' || e.state === 'strike')).length;
     if (this.bossIntroT <= 0) { for (const e of this.enemies) e.update(sdt, this); if (this.boss && this.boss.alive) this.boss.update(sdt, this); }
     this.enemies = this.enemies.filter(e => e.alive);
     // projectiles
@@ -84,6 +86,32 @@ export class World {
     for (const f of this.floats) { f.life -= dt; f.y -= 30 * dt; } this.floats = this.floats.filter(f => f.life > 0);
     for (const s of this.slashes) s.life -= dt; this.slashes = this.slashes.filter(s => s.life > 0);
     for (const t of this.trails) t.life -= dt; this.trails = this.trails.filter(t => t.life > 0);
-    if (this.phase === 'won') { this.phaseT -= dt; if (this.phaseT <= 0) { this.phase = 'done'; this.ev.ringDone && this.ev.ringDone(); } }
+    if (this.phase === 'won' && !this.scripted) { this.phaseT -= dt; const h = this.heroes[0]; const nabhiPending = this.nabhi && this.nabhi.hp > 0; if ((this.arena.atGate && this.arena.atGate(h) && !nabhiPending) || this.phaseT <= 0) { this.phase = 'done'; this.ev.ringDone && this.ev.ringDone(); } }
   }
+}
+
+
+// ---- Arena geometry. Rings 1-6: a band of ground in front of ring N's wall, with the gate (dwar) ahead. Ring 7: the Nabhi itself (a circle).
+export function makeArena(idx) {
+  const cx = WORLD.w / 2, cy = WORLD.h / 2;
+  if (idx >= 6) {
+    const A = { kind: 'circle', cx, cy, r: 400, VC: { x: cx, y: cy }, D: 0, gateOpen: false, bbox: { minX: cx - 520, maxX: cx + 520, minY: cy - 520, maxY: cy + 520 } };
+    A.inside = (x, y, pad = 0) => Math.hypot(x - cx, y - cy) < A.r + pad;
+    A.clamp = e => { const dx = e.x - cx, dy = e.y - cy, d = Math.hypot(dx, dy), max = A.r - e.r; if (d > max) { e.x = cx + dx / d * max; e.y = cy + dy / d * max; } };
+    A.spawn = () => ({ x: cx, y: cy + 250 }); A.bossSpawn = () => ({ x: cx, y: cy - 200 }); A.enemySpawn = () => { const a = rnd(-Math.PI, 0) - 0.3; return { x: cx + Math.cos(a) * (A.r - 30), y: cy + Math.sin(a) * (A.r - 30) }; };
+    A.atGate = () => false; A.gate = { x: cx, y: cy - A.r }; return A;
+  }
+  const D = 980, Rin = D - 230, Rout = D + 230, span = 500 / D, gateHalf = 70 / Rin; const VC = { x: cx, y: cy - D };
+  const A = { kind: 'band', cx, cy, r: 400, VC, D, Rin, Rout, span, gateHalf, gateOpen: false, gate: { x: cx, y: VC.y + Rin }, bbox: { minX: cx - Rout * Math.sin(span) - 80, maxX: cx + Rout * Math.sin(span) + 80, minY: VC.y + Rin * Math.cos(span) - 260, maxY: VC.y + Rout + 60 } };
+  const polar = (x, y) => { const dx = x - VC.x, dy = y - VC.y; return { r: Math.hypot(dx, dy), a: Math.atan2(dy, dx) }; };
+  A.inside = (x, y, pad = 0) => { const p = polar(x, y); const da = Math.abs(p.a - Math.PI / 2); if (A.gateOpen && da < gateHalf && p.r > Rin - 200) return p.r < Rout + pad; return p.r > Rin - pad && p.r < Rout + pad && da < span + pad / p.r; };
+  A.clamp = e => { const p = polar(e.x, e.y); const da = p.a - Math.PI / 2; let r = p.r, a = p.a; const inGate = A.gateOpen && Math.abs(da) < gateHalf - e.r / Rin;
+    const rMin = inGate ? Rin - 220 : Rin + e.r + 6, rMax = Rout - e.r; r = clamp(r, rMin, rMax);
+    if (!inGate) { const lim = span - e.r / r; a = Math.PI / 2 + clamp(da, -lim, lim); } else if (r < Rin) { a = Math.PI / 2 + clamp(da, -(gateHalf - e.r / Rin), gateHalf - e.r / Rin); }
+    e.x = VC.x + Math.cos(a) * r; e.y = VC.y + Math.sin(a) * r; };
+  A.spawn = () => ({ x: cx, y: VC.y + Rout - 90 }); A.bossSpawn = () => ({ x: cx, y: VC.y + Rin + 90 });
+  A.enemySpawn = (i, n) => { const side = i % 3; const a = side === 0 ? Math.PI / 2 + rnd(-gateHalf, gateHalf) : Math.PI / 2 + (side === 1 ? -1 : 1) * span * rnd(0.6, 0.95); const r = side === 0 ? Rin + 40 : rnd(Rin + 60, Rout - 60); return { x: VC.x + Math.cos(a) * r, y: VC.y + Math.sin(a) * r }; };
+  A.atGate = h => h && Math.hypot(h.x - VC.x, h.y - VC.y) < Rin - 40;
+  A.wallPoint = (da, dr = 0) => ({ x: VC.x + Math.cos(Math.PI / 2 + da) * (Rin + dr), y: VC.y + Math.sin(Math.PI / 2 + da) * (Rin + dr) });
+  return A;
 }
