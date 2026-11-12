@@ -25,8 +25,11 @@ export class Host {
     const Peer = await loadPeerLoose(); this.room = makeRoom();
     this.peer = new Peer(this.room, { debug: 0 });
     await new Promise((res, rej) => { this.peer.on('open', res); this.peer.on('error', e => { if (!this.ready) rej(e); else this.on('error', e); }); setTimeout(() => rej(new Error('signalling timeout')), 12000); });
+    // backgrounding the tab drops the signalling socket; reconnect so the friend's link keeps working
+    this.peer.on('disconnected', () => { setTimeout(() => { try { if (this.peer && !this.peer.destroyed && this.peer.disconnected) this.peer.reconnect(); } catch (e) { } }, 800); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { try { if (this.peer && !this.peer.destroyed && this.peer.disconnected) this.peer.reconnect(); } catch (e) { } } });
     this.ready = true;
-    this.peer.on('connection', c => { if (this.conn) { c.close(); return; } this.conn = c; c.on('data', d => this._recv(d)); c.on('close', () => { this.conn = null; this.intent = null; this.on('left'); }); c.on('open', () => this.on('joined')); });
+    this.peer.on('connection', c => { if (this.conn) { const old = this.conn; this.conn = null; try { old.close(); } catch (e) { } } /* a rejoin replaces a half-dead link */ this.conn = c; c.on('data', d => this._recv(d)); c.on('close', () => { if (this.conn !== c) return; this.conn = null; this.intent = null; this.on('left'); }); c.on('open', () => this.on('joined')); });
     return this.room;
   }
   _recv(d) {
@@ -37,7 +40,7 @@ export class Host {
   }
   send(msg) { if (this.conn && this.conn.open) { try { this.conn.send(msg); } catch (e) { } } }
   takeIntent() { const i = this.intent; if (!i) return null; const out = Object.assign({}, i); const rest = Object.assign({}, i, { weaponSel: undefined }); for (const k of ONE_SHOT) rest[k] = false; this.intent = rest; return out; }
-  close() { try { this.conn && this.conn.close(); this.peer && this.peer.destroy(); } catch (e) { } }
+  close() { this.closedByUser = true; try { this.conn && this.conn.close(); this.peer && this.peer.destroy(); } catch (e) { } }
 }
 
 export class Client {
@@ -49,7 +52,13 @@ export class Client {
     await new Promise((res, rej) => { this.conn.on('open', res); this.conn.on('error', rej); this.peer.on('error', rej); setTimeout(() => rej(new Error('host not found')), 15000); });
     this.open = true; this.conn.send({ t: 'hello', name: this.name });
     this.conn.on('data', d => { if (!d || typeof d !== 'object') return; if (d.t === 's') this.snap = d; else if (d.t === 'ev') this.on('ev', d); });
-    this.conn.on('close', () => { this.open = false; this.on('closed'); });
+    this.conn.on('close', () => { this.open = false; this._rejoin(0); });
+  }
+  async _rejoin(n) {
+    if (this.closedByUser) return; if (n >= 8) { this.on('closed'); return; } this.on('rejoining', n);
+    await new Promise(r => setTimeout(r, 1500));
+    try { if (this.peer.disconnected) this.peer.reconnect(); const c = this.peer.connect(this.room, { reliable: false, serialization: 'json' }); await new Promise((res, rej) => { c.on('open', res); c.on('error', rej); setTimeout(() => rej(new Error('timeout')), 6000); }); this.conn = c; this.open = true; c.send({ t: 'hello', name: this.name }); c.on('data', d => { if (!d || typeof d !== 'object') return; if (d.t === 's') this.snap = d; else if (d.t === 'ev') this.on('ev', d); }); c.on('close', () => { this.open = false; this._rejoin(0); }); this.on('rejoined'); }
+    catch (e) { this._rejoin(n + 1); }
   }
   sendIntent(i) { if (this.conn && this.conn.open) { try { const o = { mx: i.mx, my: i.my, aimAngle: i.aimAngle, weaponSel: i.weaponSel, drag: i.drag ? [i.drag.x, i.drag.y, i.drag.down] : null }; for (const k of ONE_SHOT) o[k] = !!i[k]; for (const k of HELD) o[k] = !!i[k]; this.conn.send({ t: 'in', i: o }); } catch (e) { } } }
   close() { try { this.conn && this.conn.close(); this.peer && this.peer.destroy(); } catch (e) { } }
