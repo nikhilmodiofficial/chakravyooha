@@ -241,3 +241,10 @@ body, .hm-blurb, .char-bio, .astra-desc, .how-d, #subtitle .txt, #banner { font-
 #weapons { pointer-events:none; }
 /* on phones the bottom belongs to the thumbs: toasts sit under the objective line instead */
 @media (max-width:900px), (pointer:coarse) { #toast { bottom:auto; top:calc(max(64px, env(safe-area-inset-top) + 56px)); max-width:92vw; } #toast .toast-item { font-size:13px; } }
+
+/* Aaj ka Vyooha (daily) */
+.hm-nav.daily { border-color: #F4C95D; background: linear-gradient(90deg, rgba(244,201,93,.18), rgba(181,71,45,.12)); margin-top: 10px; }
+.hm-nav.daily .nl { color: #F4C95D; }
+pre.daily-share { white-space: pre-wrap; font: 600 15px/1.5 ui-monospace, Menlo, Consolas, monospace; background: rgba(0,0,0,.35); border: 1px solid rgba(244,201,93,.4); border-radius: 10px; padding: 12px 14px; color: #F1E7D0; margin: 8px 0; user-select: all; }
+/* demo mode (clip recorder) */
+body.demo-nohud #touch, body.demo-nohud #stick, body.demo-nohud #hud, body.demo-nohud #weapons, body.demo-nohud #btn-astra { display: none !important; }

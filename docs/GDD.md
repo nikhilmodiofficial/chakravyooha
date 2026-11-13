@@ -118,13 +118,28 @@ Start screen pe "Mitra ko abhi bulao" → friend joins Ring 1 as Satyaki, rear r
 - Friend finish karte hi: "Tumne Abhimanyu bachaya. Ab apna Chakravyooha todo" → ek tap pe apna run (K-loop).
 - Share card (end): canvas-rendered PNG "Chakravyooha toota — 38:12 — Satyaki: <naam>" for WhatsApp/Instagram via Web Share API.
 - Savior badge local profile pe.
-- Koi login nahi, koi analytics nahi (v1). Nothing leaves the device except the P2P session.
+- Koi login nahi. Analytics sirf cookieless aggregate counts (GoatCounter beacon, `js/gtm.js`): ring start/clear, run complete, Mitra link, friend join, share, daily start/share. Koi ID, koi personal data nahi; `<meta name="gc-site">` hata do to band. (v1 me "koi analytics nahi" tha; GTM ke level-gates ke liye 13 Nov ko badla.)
+
+### 4.1 Aaj ka Vyooha (daily mode, added 13 Nov 2026)
+
+Wordle ka asli engine share grid nahi, "roz ek puzzle, sabke liye same" tha. Poora 30-40 min ka run roz share karne layak nahi hota; isliye ek 3-min daily layer.
+
+- Roz (IST date) ek ring (1-6 rotate, 7 kabhi nahi) + ek twist. Launch #1 = 18 Nov 2026. Seed: `ORDER = [4,1,5,2,6,3]` (ring no.), twist index `((n-1) + floor((n-1)/6)*2) % 5`.
+- Twists (sirf wo systems jo World already padhta hai, taaki hamesha enforce ho): Wounded (60% praan), No astra, Double army, Iron maharathi (+30% boss life), Every blow hurts more.
+- Sabke liye neutral difficulty (adaptive mercy/pro off). Din ka pehla try hi count; baad me "abhyas" (practice), result nahi badalta. Streak.
+- Result: spoiler-free text, WhatsApp/Insta DM me chalne wala: `Aaj ka Vyooha #5 · Karna · No astra today / Jeeta 2:14 me  praan ▰▰▰▱▱  streak 3 / <link ?play=daily>`. Haar pe boss ka bacha hua bar.
+- Link `?play=daily` seedha aaj ke challenge me le jaata hai. Home pe "Aaj ka Vyooha #N" button.
+- Do loops alag: daily share = naye players (Wordle loop), Ring 7 Mitra Smaran = dost (K-loop).
+
+### 4.2 Demo mode (clip recorder ke liye)
+
+`?demo=<scene>&nohud=1`: menus skip, bot Abhimanyu khelta hai, HUD/touch chhupte hain, `window.__demoDone` scene khatam hone pe. Scenes: ring7_rescue, mitra_smaran, ring4_kavach, astra_vayu, gate_jayadratha, daily. GTM engine ka `engine/clips.mjs` isse faceless 9:16 Reels banata hai.
 
 ---
 
 ## 5. Art direction
 
-Raji palette: terracotta #B5472D, ochre #D9A441, deep indigo #1B1F3B, bone #F1E7D0, gold #F4C95D, blood #7A1E1E. Outer rings warm golden dust; inner rings indigo-violet with torch light. HUD: brass mandala frame, Devanagari headings (Tiro Devanagari / Noto Serif Devanagari via Google Fonts, fallback system). Characters: vector silhouettes with 3-tone shading, distinct colour per boss, weapon trails. Astras: Avatar-style elemental ribbons (additive blending). Everything procedurally drawn on Canvas — koi external image asset nahi (load < 1.5 s, no copyright risk).
+Raji palette: terracotta #B5472D, ochre #D9A441, deep indigo #1B1F3B, bone #F1E7D0, gold #F4C95D, blood #7A1E1E. Outer rings warm golden dust; inner rings indigo-violet with torch light. HUD: brass mandala frame, Devanagari headings (Tiro Devanagari / Noto Serif Devanagari via Google Fonts, fallback system). Characters: vector silhouettes with 3-tone shading, distinct colour per boss, weapon trails. Astras: Avatar-style elemental ribbons (additive blending). Everything procedurally drawn on Canvas — koi external image asset nahi (load < 1.5 s, no copyright risk). Exception: `assets/img/og.jpg` (link preview, gameplay screenshot se bana).
 
 ## 6. Audio direction (sab procedural, Web Audio API)
 
