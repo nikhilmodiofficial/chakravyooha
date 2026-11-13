@@ -17,6 +17,9 @@ import { drawWeapon } from './art.js';
 import { T, lang, setLang, tr, charInfo } from './i18n.js';
 import { Adaptive } from './adaptive.js';
 import { MARMA_LINES } from './marma.js';
+import * as gtm from './gtm.js';
+import * as Daily from './daily.js';
+import { demoScene, botIntent } from './demo.js';
 // canvas text written inline in Hindi (names, gate labels, float text, share card) follows the chosen language
 { const P = CanvasRenderingContext2D.prototype; for (const f of ['fillText', 'strokeText', 'measureText']) { const o = P[f]; P[f] = function (t, ...a) { return o.call(this, tr(t), ...a); }; }
   // gradients with a negative or non-finite radius throw mid-frame; clamp them instead
@@ -31,7 +34,9 @@ class Game {
     this.state = 'title'; this.world = null; this.ring7 = null; this.elapsed = 0; this.ringIdx = 0; this.abhi = null; this.satyaki = null; this.coop = { mode: 'none', host: null, client: null, friend: null }; this.proxy = null; this.last = performance.now(); this.t = 0; this.netT = 0; this.waitT = 0;
     this.voice.muted = !this.save.d.voice; this.audio.setMute(!!this.save.d.mute); this.home = new Home(this); this.ui.initWeapons(drawWeapon); this.setLanguage(this.save.d.langChosen && this.save.d.lang ? this.save.d.lang : 'en');
     this.bindTouch(); window.addEventListener('beforeunload', () => { if (this.coop.host) this.coop.host.close(); if (this.coop.client) this.coop.client.close(); });
-    const m = location.hash.match(/join=(cv[a-z0-9]{10})/); if (m) this.clientFlow(m[1]); else this.title();
+    gtm.init({ baseUrl: location.origin + location.pathname, allowBot: !!demoScene() });
+    this.demo = demoScene(); if (this.demo) { this.startDemo(); requestAnimationFrame(t => this.loop(t)); return; }
+    const m = location.hash.match(/join=(cv[a-z0-9]{10})/); if (m) this.clientFlow(m[1]); else if (new URLSearchParams(location.search).get('play') === 'daily') this.startDaily(); else this.title();
     requestAnimationFrame(t => this.loop(t));
   }
   bindTouch() { const b = document.getElementById('touch'); b.classList.toggle('hidden', !this.input.isTouch); for (const n of ['attack', 'block', 'switch', 'jump', 'astra', 'skip']) { const e = document.getElementById('btn-' + n); if (e) this.input.bindButton(e, n); } }
@@ -41,11 +46,12 @@ class Game {
   sayRaw(text, color, id) { const i = text.indexOf(':'); const who = i > 0 && i < 14 ? text.slice(0, i) : ''; this.ui.say(who, i > 0 && i < 14 ? text.slice(i + 1).trim() : text, color); const key = Object.keys(CHARACTERS).find(k => CHARACTERS[k].name === who) || (who ? 'enemy' : 'sanjaya'); this.voice.say(key, text, id); if (this.coop.host) this.coop.host.send({ t: 'ev', k: 'say', who: key, text }); }
 
   // ---------- TITLE ----------
-  title() { this.state = 'title'; this.ui.showHud(false); this.ui.hideMenu(); this.audio.playMusic('menu', 84); this.voice.stop(); this.home.show(null); }
+  title() { this.dailyRun = null; this.state = 'title'; this.ui.showHud(false); this.ui.hideMenu(); this.audio.playMusic('menu', 84); this.voice.stop(); this.home.show(null); }
   setLanguage(l, explicit) { setLang(l); this.voice.lang = l; this.save.d.lang = l; if (explicit) this.save.d.langChosen = true; this.save.write(); document.documentElement.lang = l; if (this.ui) this.ui.localizeTouch(); }
   introScenes() { return INTRO; }
   // ---------- RUN ----------
   async startRun(ringIdx) {
+    this.dailyRun = null;
     this.ui.hideMenu(); this.home.hide(); this.ringIdx = ringIdx; this.elapsed = ringIdx === 0 ? 0 : this.save.d.elapsed; this.save.d.runs++; this.save.write();
     this.abhi = new Hero('abhimanyu', 0, 0); this.abhi.name = 'अभिमन्यु';
     if (ringIdx === 0) { this.state = 'cine'; this.audio.playMusic('cinematic', 84); await this.cine.play(INTRO, { seenBefore: this.save.d.introSeen, idPrefix: 'intro' }); this.save.set('introSeen', true); }
@@ -55,7 +61,7 @@ class Game {
     this.ringIdx = idx; this.ui.hideMenu(); this.home.hide(); this.ui.showHud(true); this.voice.stop();
     const heroes = [this.abhi]; if (this.coop.mode === 'host' && this.coop.friend && idx < 6) { if (!this.satyaki) { this.satyaki = new Hero('satyaki', 0, 0); this.satyaki.name = 'सात्यकि'; } this.satyaki.hp = this.satyaki.maxHp; this.satyaki.alive = true; this.satyaki.state = 'idle'; heroes.push(this.satyaki); }
     const before = this.abhi.hp; this.abhi.hp = idx === 0 ? this.abhi.maxHp : Math.min(this.abhi.maxHp, Math.max(this.abhi.hp + this.abhi.maxHp * RULES.survival.gateHeal, this.abhi.maxHp * RULES.survival.gateFloor)); this._gateHeal = Math.round(this.abhi.hp - before); this.abhi.alive = true; this.abhi.state = 'idle'; this.abhi.weaponsBroken = { bow: false, gada: false }; this.abhi.arrows = this.abhi.maxArrows; this.abhi.shieldBroken = false; this.abhi.blocking = false; this.abhi.weapon = 'sword'; this.abhi.shakti = this.abhi.shakti || 0;
-    const ring = RINGS[idx]; this.ui.setRing(ring);
+    const ring = RINGS[idx]; this.ui.setRing(ring); if (!this.dailyRun && !this.demo) gtm.track('ring_start', { ring: idx + 1 });
     this.world = new World(idx, heroes, this.audio, {
       wave: n => { this.ui.toast(n === 1 ? T('toastWave1') : T('toastWave2'), 1800); this.ui.setObjective(T('objWave')); },
       bossIntro: b => { this.ui.setObjective(T('objBoss') + b.def.name + T('objBoss2')); this.ui.bossCard(b); this.sayRaw(b.def.intro, b.def.accent, 'boss_' + b.key + '_intro'); this.audio.playMusic('boss', ring.bpm + 8); if (this.coop.host) this.coop.host.send({ t: 'ev', k: 'obj', text: 'महारथी: ' + b.def.name }); },
@@ -69,12 +75,12 @@ class Game {
       marma: (b, what) => this.onMarmaEvent(b, what)
     });
     // adaptive difficulty: this ring's modifiers (help after falls, pressure when cruising)
-    this.world.mods = idx === 6 ? null : this.adaptive.mods(idx); this.abhi.extraAstra = 0;
+    this.world.mods = idx === 6 ? null : this.dailyRun ? this.dailyRun.mods : this.demo ? Object.assign(this.adaptive.mods(idx), { mercy: 0, bossHpMult: this.demo.bossHp || 1, soldiersMult: 0.5, enemyDamageTakenMult: 3 }) : this.adaptive.mods(idx); this.abhi.extraAstra = 0;
     if (this.world.mods && this.world.mods.mercy > 0) { this.abhi.shakti = Math.max(this.abhi.shakti || 0, this.world.mods.shaktiAtStart); this.abhi.extraAstra = this.world.mods.extraBigAstra; setTimeout(() => this.ui.toast(T('blessing' + this.world.mods.mercy), 4200), 2600); }
     if (heroes.length > 1 && this.world.arena.wallPoint) { const wp = this.world.arena.wallPoint(-0.36, 70); this.world.nabhi = { x: wp.x, y: wp.y, hp: 160 + idx * 40, maxHp: 160 + idx * 40 }; }
     this.ring7 = null; if (idx === 6) { this.ring7 = new Ring7(this.world, this); this.audio.playMusic('siege', 132); }
     else { this.audio.playMusic('ring', ring.bpm); setTimeout(() => this.sayRaw(RING_LINES[idx + 1].drona, '#D9A441', 'ring' + (idx + 1) + '_drona'), 900); this.ui.setObjective(''); }
-    this.state = 'ring'; if ((idx === 0 || this.save.d.runs <= 1) && !this._hintShown) { this._hintShown = true; this.ui.showControlsHint(this.input.isTouch); }
+    this.state = 'ring'; if ((idx === 0 || this.save.d.runs <= 1) && !this._hintShown && !this.demo) { this._hintShown = true; this.ui.showControlsHint(this.input.isTouch); }
     this.ui.toast(ring.name + ' — ' + ring.sub + (idx > 0 && this._gateHeal > 0 ? (lang() === 'en' ? '  ·  +' + this._gateHeal + ' life, quiver refilled' : '  ·  +' + this._gateHeal + ' प्राण, तरकश भरा') : ''), 3200);
   }
   // marma: no hints; when the player finds the vital point, Sanjaya marks the moment
@@ -83,11 +89,16 @@ class Game {
     if (what === 'found') { this.ui.hypeWord(lang() === 'en' ? 'Marma!' : 'मर्म!', true); this.sayLine(pick(L[2])); }
   }
   onDeath() {
+    if (this.demo) { window.__demoDone = true; return; }
+    if (this.dailyRun) { this.finishDaily(false); return; }
     if (this.ringIdx < 6) this.adaptive.onDeath(this.ringIdx);
     this.state = 'dead'; this.audio.playMusic('none'); const ring = RINGS[this.ringIdx];
     setTimeout(() => this.ui.showMenu({ kicker: ring.name, title: T('fell'), body: [T('fellBody'), this.abhi.stats.hits + ' ⚔ · ' + this.abhi.stats.dodges + ' ↷'], buttons: [{ label: T('retry'), sub: T('retrySub'), cls: 'primary', onClick: () => { this.abhi.hp = this.abhi.maxHp; this.startRing(this.ringIdx); } }, { label: T('home'), onClick: () => this.title() }] }), 900);
   }
   onRingDone() {
+    if (this.demo) { window.__demoDone = true; this.state = 'clear'; return; }
+    if (this.dailyRun) { this.finishDaily(true); return; }
+    gtm.track('ring_clear', { ring: this.ringIdx + 1 });
     if (this.ringIdx < 6 && this.world) this.adaptive.onRingClear(this.ringIdx, this.world.time, this.abhi.hp / this.abhi.maxHp);
     const ring = RINGS[this.ringIdx]; const earned = ring.earnAstra; const astras = this.save.d.astras.slice(); if (earned && !astras.includes(earned)) astras.push(earned);
     this.save.checkpoint(this.ringIdx + 1, this.elapsed, astras); this.state = 'clear'; this.audio.playMusic('menu', 84); this.audio.sfx('unlock');
@@ -105,6 +116,7 @@ class Game {
 
   // ---------- RING 7: MITRA SMARAN ----------
   onFallen() {
+    if (this.demo) { setTimeout(() => { window.__demoDone = true; }, 3500); this.state = 'fallen'; return; }
     this.state = 'fallen'; const lines = RING7.fallLines; let i = 0; const next = () => { if (i < lines.length) { this.sayLine(lines[i++]); setTimeout(next, 4200); } else this.mitraMenu(); }; setTimeout(next, 1500);
   }
   mitraMenu(waiting) {
@@ -112,7 +124,7 @@ class Game {
     const buttons = [];
     if (this.coop.mode === 'host' && this.coop.friend) { this.ui.hideMenu(); this.beginCoop('remote'); return; }
     if (waiting && this.coop.host) {
-      const link = joinLink(this.coop.host.room); const box = document.createElement('div'); box.className = 'linkbox'; const inp = document.createElement('input'); inp.readOnly = true; inp.value = link; box.appendChild(inp);
+      const link = gtm.tagJoinLink(joinLink(this.coop.host.room)); if (!this._mitraTracked) { this._mitraTracked = true; gtm.track('mitra_link_created'); } const box = document.createElement('div'); box.className = 'linkbox'; const inp = document.createElement('input'); inp.readOnly = true; inp.value = link; box.appendChild(inp);
       buttons.push({ label: 'WhatsApp पर भेजो', cls: 'primary', onClick: () => window.open(whatsappLink('भाई, मैं चक्रव्यूह के सातवें चक्र में घिर गया हूँ। दुर्मसेन गदा लेकर खड़ा है। इस लिंक पर टैप कर, सात्यकि बन, और मुझे बचा: ' + link), '_blank', 'noopener') });
       buttons.push({ label: 'लिंक कॉपी', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(link); this.ui.toast('लिंक कॉपी हो गया'); } });
       buttons.push({ label: 'स्वयं सात्यकि बनो', sub: 'इसी स्क्रीन पर', onClick: () => this.beginCoop('hotseat') });
@@ -125,7 +137,7 @@ class Game {
     this.ui.showMenu({ kicker: 'सप्तम चक्र · व्यूह-नाभि', title: 'मित्र स्मरण', body: ['"तात भीम... आपने कहा था... आप पीछे हैं..."', 'अकेले यह द्वार नहीं टूटता। सात्यकि अंदर है — उसे पुकारो।', 'सात्यकि की भूमिका: बाण-जाल से दुर्मसेन को बाँधो → मंत्र-चक्र से अभिमन्यु को उठाओ → द्वंद्व जीतो → साथ में नाभि तोड़ो।'], buttons });
   }
   async openHost() { if (this.coop.host) return; const h = new Host((ev, data) => { if (ev === 'hello') { const back = this.coop.mode === 'hotseat' || this.coop.away; clearTimeout(this._awayT); this.coop.away = false; this.coop.mode = 'host'; this.coop.friend = data; this.ui.toast(data + ' सात्यकि बनकर आया!', 3000); if (this.state === 'fallen') { this.ui.hideMenu(); this.beginCoop('remote'); } else if (this.state === 'hostwait') { this.ui.hideMenu(); this.startRun(0); } } else if (ev === 'left') { this.coop.away = true; this.ui.toast('मित्र का संपर्क टूटा — लौटने की प्रतीक्षा…', 3500); clearTimeout(this._awayT); this._awayT = setTimeout(() => { if (this.coop.away && this.coop.mode === 'host') { this.coop.mode = 'hotseat'; this.coop.friend = null; this.ui.toast('मित्र का संपर्क टूटा — सात्यकि अब तुम्हारे हाथ में', 3500); } }, 20000); } }); await h.open(); this.coop.host = h; this.coop.mode = 'host'; }
-  async hostFromStart() { this.home.hide(); this.ui.showMenu({ title: 'कक्ष बन रहा है…' }); try { await this.openHost(); } catch (e) { this.ui.toast('ऑनलाइन कक्ष नहीं बना: ' + (e.message || 'network'), 4000); return this.title(); } this.state = 'hostwait'; const link = joinLink(this.coop.host.room); const box = document.createElement('div'); box.className = 'linkbox'; const inp = document.createElement('input'); inp.readOnly = true; inp.value = link; box.appendChild(inp);
+  async hostFromStart() { this.home.hide(); this.ui.showMenu({ title: 'कक्ष बन रहा है…' }); try { await this.openHost(); } catch (e) { this.ui.toast('ऑनलाइन कक्ष नहीं बना: ' + (e.message || 'network'), 4000); return this.title(); } this.state = 'hostwait'; const link = gtm.tagJoinLink(joinLink(this.coop.host.room)); gtm.track('mitra_link_created'); const box = document.createElement('div'); box.className = 'linkbox'; const inp = document.createElement('input'); inp.readOnly = true; inp.value = link; box.appendChild(inp);
     this.ui.showMenu({ kicker: 'सह-खेल', title: 'मित्र की प्रतीक्षा', body: ['मित्र लिंक खोलते ही खेल शुरू होगा। तुम अभिमन्यु (आगे), वह सात्यकि (पीछे — हर चक्र की व्यूह-नाभि गिराएगा)।'], custom: box, buttons: [{ label: 'WhatsApp पर भेजो', cls: 'primary', onClick: () => window.open(whatsappLink('चक्रव्यूह तोड़ने चल रहा हूँ। तू सात्यकि बन, मेरे पीछे आ: ' + link), '_blank', 'noopener') }, { label: 'लिंक कॉपी', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(link); this.ui.toast('कॉपी'); } }, { label: 'रद्द', onClick: () => { this.coopClose(); this.title(); } }] }); }
   coopClose() { if (this.coop.host) this.coop.host.close(); this.coop = { mode: 'none', host: null, client: null, friend: null }; this.satyaki = null; }
   beginCoop(mode) {
@@ -136,7 +148,7 @@ class Game {
     if (this.coop.host) this.coop.host.send({ t: 'ev', k: 'obj', text: 'बाण-जाल: तीन चमकते बिंदुओं पर बाण मारो' });
   }
   async onVictory() {
-    this.state = 'cine'; this.ui.showHud(false); const s = this.save.d; s.wins++; if (!s.bestTime || this.elapsed < s.bestTime) s.bestTime = this.elapsed; s.ring = 0; s.astras = []; this.save.write();
+    this.state = 'cine'; this.ui.showHud(false); gtm.runCompleted(); const s = this.save.d; s.wins++; if (!s.bestTime || this.elapsed < s.bestTime) s.bestTime = this.elapsed; s.ring = 0; s.astras = []; this.save.write();
     if (this.coop.host) this.coop.host.send({ t: 'ev', k: 'end', time: fmtTime(this.elapsed) });
     this.audio.playMusic('epilogue', 72); this.audio.sfx('shankh'); await this.cine.play(EPILOGUE, { seenBefore: s.wins > 1, idPrefix: 'epi' }); this.ui.showMenu({ kicker: 'अंतिम पृष्ठ', title: 'ग्रंथ-पृष्ठ ७', custom: this.codexPage(6), buttons: [{ label: 'आगे', cls: 'primary', onClick: () => this.endMenu() }] });
   }
@@ -144,7 +156,7 @@ class Game {
     this.state = 'end'; const url = location.origin + location.pathname; const friend = this.coop.friend || (this.coop.mode === 'hotseat' ? 'स्वयं' : 'मित्र');
     const card = renderCard({ title: 'इतिहास बदल गया', line1: 'चक्रव्यूह टूटा — ' + fmtTime(this.elapsed), line2: 'सात्यकि: ' + friend, line3: 'अभिमन्यु जीवित। हज़ारों सैनिक बचे।', url });
     const img = document.createElement('img'); img.src = card.toDataURL('image/png'); img.className = 'cardimg'; img.alt = 'share card';
-    this.ui.showMenu({ kicker: 'संध्या · कुरुक्षेत्र', title: 'इतिहास बदल गया', custom: img, body: ['समय: ' + fmtTime(this.elapsed) + (this.save.d.bestTime ? ' · सर्वश्रेष्ठ: ' + fmtTime(this.save.d.bestTime) : '')], buttons: [{ label: 'साझा करो', cls: 'primary', onClick: () => shareCard(card, 'मैंने चक्रव्यूह तोड़ा — ' + fmtTime(this.elapsed) + ' में। अभिमन्यु जीवित है। तुम तोड़ सकते हो?', url) }, { label: 'कार्ड डाउनलोड', onClick: () => downloadCard(card) }, { label: 'फिर से', onClick: () => { this.coopClose(); this.startRun(0); } }, { label: 'मुख्य पृष्ठ', onClick: () => { this.coopClose(); this.title(); } }] });
+    this.ui.showMenu({ kicker: 'संध्या · कुरुक्षेत्र', title: 'इतिहास बदल गया', custom: img, body: ['समय: ' + fmtTime(this.elapsed) + (this.save.d.bestTime ? ' · सर्वश्रेष्ठ: ' + fmtTime(this.save.d.bestTime) : '')], buttons: [{ label: 'साझा करो', cls: 'primary', onClick: () => { gtm.track('share'); return shareCard(card, 'मैंने चक्रव्यूह तोड़ा — ' + fmtTime(this.elapsed) + ' में। अभिमन्यु जीवित है। तुम तोड़ सकते हो?', url + '?s=share&ref=' + gtm.pid()); } }, { label: 'कार्ड डाउनलोड', onClick: () => downloadCard(card) }, { label: 'फिर से', onClick: () => { this.coopClose(); this.startRun(0); } }, { label: 'मुख्य पृष्ठ', onClick: () => { this.coopClose(); this.title(); } }] });
   }
 
   // ---------- CLIENT (friend as Satyaki) ----------
@@ -154,13 +166,50 @@ class Game {
   }
   async connectClient(room, name) {
     const c = new Client(room, name, (ev, d) => { if (ev === 'ev') this.clientEvent(d); else if (ev === 'rejoining') { if (d === 0) this.ui.toast('संपर्क टूटा — फिर जुड़ रहे हैं…', 2500); } else if (ev === 'rejoined') this.ui.toast('फिर जुड़ गए', 1800); else if (ev === 'closed') { this.ui.toast('संपर्क टूटा', 3000); this.ui.showMenu({ title: 'संपर्क टूटा', buttons: [{ label: 'अपना चक्रव्यूह तोड़ो', cls: 'primary', onClick: () => { location.hash = ''; location.reload(); } }] }); } });
-    await c.connect(); this.coop.client = c; this.coop.mode = 'client'; this.proxy = makeProxyWorld(RINGS[6]); this.ui.hideMenu(); this.ui.showHud(true); this.ui.setRing(RINGS[6], 'satyaki'); this.state = 'client'; this.audio.playMusic('siege', 132); this.ui.showControlsHint(this.input.isTouch); this.ui.toast('जुड़ गए। अभिमन्यु की प्रतीक्षा…', 2500);
+    await c.connect(); gtm.onFriendJoined(); this.coop.client = c; this.coop.mode = 'client'; this.proxy = makeProxyWorld(RINGS[6]); this.ui.hideMenu(); this.ui.showHud(true); this.ui.setRing(RINGS[6], 'satyaki'); this.state = 'client'; this.audio.playMusic('siege', 132); this.ui.showControlsHint(this.input.isTouch); this.ui.toast('जुड़ गए। अभिमन्यु की प्रतीक्षा…', 2500);
   }
   clientEvent(d) {
     if (d.k === 'say') { const c = CHARACTERS[d.who] || CHARACTERS.sanjaya; const text = String(d.text).slice(0, 400); this.ui.say(c.name, text, c.color); this.voice.say(d.who in CHARACTERS ? d.who : 'sanjaya', text); }
     else if (d.k === 'toast') this.ui.toast(String(d.text).slice(0, 200), 3000);
     else if (d.k === 'obj') this.ui.setObjective(String(d.text).slice(0, 200));
-    else if (d.k === 'end') { this.state = 'client-end'; this.audio.playMusic('epilogue', 72); this.audio.sfx('shankh'); const url = location.origin + location.pathname; this.save.d.savior++; this.save.write(); this.ui.showMenu({ kicker: 'रक्षक · ' + (this.save.d.savior) + ' बार', title: 'तुमने अभिमन्यु को बचाया', body: ['चक्रव्यूह टूटा — ' + String(d.time || '').slice(0, 10), 'इतिहास में सात्यकि को यह अवसर नहीं मिला था। तुम्हें मिला।', 'अब अपना चक्रव्यूह तोड़ो — अभिमन्यु बनकर।'], buttons: [{ label: 'अपना चक्रव्यूह तोड़ो', cls: 'primary', onClick: () => { location.hash = ''; location.reload(); } }, { label: 'साझा करो', onClick: () => shareCard(renderCard({ title: 'रक्षक', line1: 'मैंने सात्यकि बनकर', line2: 'अभिमन्यु को बचाया', line3: 'चक्रव्यूह — Rewriting the Epic', url }), 'मैंने सात्यकि बनकर अभिमन्यु को बचाया। तुम तोड़ सकते हो चक्रव्यूह?', url) }] }); }
+    else if (d.k === 'end') { gtm.onFriendSaved(); this.state = 'client-end'; this.audio.playMusic('epilogue', 72); this.audio.sfx('shankh'); const url = location.origin + location.pathname; this.save.d.savior++; this.save.write(); this.ui.showMenu({ kicker: 'रक्षक · ' + (this.save.d.savior) + ' बार', title: 'तुमने अभिमन्यु को बचाया', body: ['चक्रव्यूह टूटा — ' + String(d.time || '').slice(0, 10), 'इतिहास में सात्यकि को यह अवसर नहीं मिला था। तुम्हें मिला।', 'अब अपना चक्रव्यूह तोड़ो — अभिमन्यु बनकर।'], buttons: [{ label: 'अपना चक्रव्यूह तोड़ो', cls: 'primary', onClick: () => { location.hash = ''; location.reload(); } }, { label: 'साझा करो', onClick: () => shareCard(renderCard({ title: 'रक्षक', line1: 'मैंने सात्यकि बनकर', line2: 'अभिमन्यु को बचाया', line3: 'चक्रव्यूह — Rewriting the Epic', url }), 'मैंने सात्यकि बनकर अभिमन्यु को बचाया। तुम तोड़ सकते हो चक्रव्यूह?', url) }] }); }
+  }
+
+  // ---------- DEMO (clip recorder) ----------
+  startDemo() {
+    const d = this.demo; if (d.nohud) { document.body.classList.add('demo-nohud'); this.ui.showControlsHint = () => {}; }
+    this.home.hide(); this.voice.muted = true; this.abhi = new Hero('abhimanyu', 0, 0); this.abhi.name = 'अभिमन्यु'; this.elapsed = 0; this._hintShown = true;
+    this.startRing(d.ring); if (d.ring === 1) this.abhi.astra = 'vayu';
+  }
+  // ---------- AAJ KA VYOOHA (daily) ----------
+  startDaily(practice) {
+    const d = Daily.today(); const done = Daily.played(this.save, d.n);
+    if (done && !practice) return this.dailyResult(d, done, true);
+    this.ui.hideMenu(); this.home.hide(); this.gesture && this.gesture();
+    this.dailyRun = { d, mods: Daily.mods(d), practice: !!(done || practice) }; gtm.track(this.dailyRun.practice ? 'daily_practice' : 'daily_start');
+    this.abhi = new Hero('abhimanyu', 0, 0); this.abhi.name = 'अभिमन्यु'; this.elapsed = 0; this.coopClose();
+    this.startRing(d.ring); this.abhi.astra = RINGS[d.ring].useAstra; if (d.twist.hero) d.twist.hero(this.abhi);
+    this.ui.toast((lang() === 'en' ? 'Aaj ka Vyooha #' : 'आज का व्यूह #') + d.n + ' · ' + d.twist[lang() === 'en' ? 'en' : 'hi'], 4200);
+  }
+  finishDaily(win) {
+    const run = this.dailyRun; this.dailyRun = null; const d = run.d; const w = this.world; const b = w && w.boss;
+    const res = { win, time: w ? w.time : 0, hp: this.abhi ? Math.max(0, this.abhi.hp / this.abhi.maxHp) : 0, bossLeft: b ? Math.max(0, b.hp / b.maxHp) : 1 };
+    this.state = 'clear'; this.audio.playMusic('menu', 84); this.audio.sfx(win ? 'unlock' : 'ui');
+    if (run.practice) return this.dailyResult(d, Object.assign({ practice: true }, res), false);
+    gtm.track(win ? 'daily_win' : 'daily_loss'); this.dailyResult(d, Daily.record(this.save, d, res), false);
+  }
+  dailyResult(d, r, fromHome) {
+    this.home.hide(); const en = lang() === 'en'; const streak = this.save.d.dailyStreak || 0; const counted = this.save.d.daily && this.save.d.daily.n === d.n ? this.save.d.daily : r;
+    const text = Daily.shareText(d, counted, streak, en); const pre = document.createElement('pre'); pre.className = 'daily-share'; pre.textContent = text;
+    const title = r.practice ? (en ? 'Practice round' : 'अभ्यास') : r.win ? (en ? 'Vyooha broken' : 'व्यूह टूटा') : (en ? 'You fell' : 'तुम गिरे');
+    this.ui.showHud(false); this.ui.showMenu({ kicker: (en ? 'Aaj ka Vyooha #' : 'आज का व्यूह #') + d.n + ' · ' + d.twist[en ? 'en' : 'hi'], title,
+      body: [r.practice ? (en ? 'Only your first try of the day counts. This is your shareable result:' : 'दिन का पहला प्रयास ही गिना जाता है। साझा करने वाला परिणाम:') : (en ? 'Same fight for everyone in India today. Send it to the friend who thinks they are better.' : 'आज पूरे भारत में सबके लिए यही युद्ध। उस दोस्त को भेजो जो खुद को बेहतर समझता है।'), (en ? 'Next vyooha at midnight (IST). Streak: ' : 'अगला व्यूह आधी रात को। लगातार: ') + streak],
+      custom: pre, buttons: [
+        { label: en ? 'Share result' : 'परिणाम भेजो', cls: 'primary', onClick: async () => { gtm.track('share', {}); gtm.track('daily_share'); try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === 'AbortError') return; } window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener'); } },
+        { label: en ? 'Copy' : 'कॉपी', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(text); this.ui.toast(en ? 'Copied' : 'कॉपी हो गया'); } },
+        { label: en ? 'Practice again' : 'फिर अभ्यास', sub: en ? 'does not change your result' : 'परिणाम नहीं बदलेगा', onClick: () => this.startDaily(true) },
+        { label: en ? 'Full story: 7 rings' : 'पूरी कथा: सात चक्र', onClick: () => { this.ui.hideMenu(); this.startRun(this.save.d.ring > 0 ? this.save.d.ring : 0); } },
+        { label: T('home'), onClick: () => this.title() }] });
   }
 
   // ---------- LOOP ----------
@@ -175,6 +224,7 @@ class Game {
     if (this.state === 'ring') {
       if (intent.pause) { this.pause(); return; }
       if (intent.mouseFresh) { const w = this.r.screenToWorld(this.input.mouse.x * this.r.w, this.input.mouse.y * this.r.h); const h = this.activeHero(); intent.aimAngle = Math.atan2(w.y - h.y, w.x - h.x); }
+      if (this.demo) { Object.assign(intent, botIntent(this.world, this.abhi, this.demo, dt)); if (this.demo.god && this.abhi) this.abhi.hp = this.abhi.maxHp; if (this.demo.t > this.demo.max) window.__demoDone = true; }
       const intents = this.buildIntents(intent);
       this.world.update(dt, intents); if (this.ring7) this.ring7.update(dt, intents);
       if (this.world.phase !== 'intro' && this.world.phase !== 'done') this.elapsed += dt;

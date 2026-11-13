@@ -3,6 +3,7 @@ import { RINGS, BOSSES, ASTRAS, CHARACTERS, CODEX, CHAR_BIOS, ASTRA_LORE, INTRO,
 import { T, lang, data, charInfo, astraLore, astraDeity } from './i18n.js';
 import { drawWarrior, drawWeapon } from './art.js';
 import { fmtTime } from './share.js';
+import * as Daily from './daily.js';
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined && text !== null) e.textContent = text; return e; };
 const img = (name, onFail) => { const i = new Image(); i.alt = ''; i.loading = 'lazy'; i.src = 'assets/img/' + name + '.jpg'; i.onerror = () => { const f = onFail && onFail(); if (f) i.replaceWith(f); else i.remove(); }; return i; };
@@ -45,6 +46,10 @@ export class Home {
     const s = this.g.save.d; const cont = s.ring > 0;
     col.appendChild(el('p', 'hm-blurb', T('blurb1'))); col.appendChild(el('p', 'hm-blurb dim', T('blurb2')));
     const play = el('button', 'hm-play'); play.appendChild(el('div', 'pl', cont ? T('cont') : T('start'))); play.appendChild(el('div', 'ps', cont ? `${T('checkpoint')}: ${RINGS[s.ring].name} · ${fmtTime(s.elapsed)} · ${s.astras.length} ${T('astraCount')}` : T('startSub'))); play.onclick = () => { this.g.gesture(); this.g.startRun(cont ? s.ring : 0); }; col.appendChild(play);
+    { const d = Daily.today(); const done = Daily.played(this.g.save, d.n); const en = lang() === 'en'; const db = el('button', 'hm-nav wide daily');
+      db.appendChild(el('div', 'nl', (en ? 'Aaj ka Vyooha #' : 'आज का व्यूह #') + d.n + (done ? (en ? '  ·  played' : '  ·  खेला') : '')));
+      db.appendChild(el('div', 'ns', done ? (en ? 'See and share your result' : 'अपना परिणाम देखो और भेजो') : (en ? '3 min · same fight for everyone today · ' : '3 मिनट · आज सबके लिए यही युद्ध · ') + d.bossName + ' · ' + d.twist[en ? 'en' : 'hi']));
+      db.onclick = () => { this.g.gesture(); this.g.startDaily(); }; col.appendChild(db); }
     const row = el('div', 'hm-row'); if (cont) { const nr = el('button', 'hm-nav'); nr.appendChild(el('div', 'nl', T('newRun'))); nr.appendChild(el('div', 'ns', T('fromStart'))); nr.onclick = () => { this.g.gesture(); this.g.save.reset(); this.g.startRun(0); }; row.appendChild(nr); }
     const cf = el('button', 'hm-nav'); cf.appendChild(el('div', 'nl', T('callFriend'))); cf.appendChild(el('div', 'ns', T('callFriendSub'))); cf.onclick = () => { this.g.gesture(); this.g.hostFromStart(); }; row.appendChild(cf); col.appendChild(row);
     const grid = el('div', 'hm-grid');
